@@ -342,7 +342,9 @@ The streaming modes map directly to UI needs:
 | Forks | 39 | Low — limited community contribution |
 | Open Issues | 7 | Healthy ratio (low) |
 | Created | 2025-11-23 | Very new (~6 months old) |
-| Last Push | 2026-02-24 | Active as of Feb 2026 |
+| Last Push | 2026-02-24 | Active as of Feb 2026 (see note below) |
+| Contributors | 6 total | Per GitHub API (PRD cited "7" — approximately correct) |
+| Test Coverage | ~75%+ overall | Per week008.md report; PTC subpackage at 64.1% per week001.md |
 | License | MIT | Permissive |
 | Language | Go | Single language |
 
@@ -360,6 +362,25 @@ The streaming modes map directly to UI needs:
 - **Single maintainer (bus factor = 1):** `smallnest` appears to be the primary/only contributor based on commit history and issue activity
 - **Very new project:** Created Nov 2025, no track record of long-term maintenance
 - **No CLA or contribution guide beyond basic CONTRIBUTING.md**
+
+### Contributor Breakdown
+
+Per GitHub API, the project has **6 contributors** (the PRD's "7 contributors" is approximately correct):
+
+| Contributor | Commits | Role |
+|-------------|---------|------|
+| `smallnest` | 263 (93%) | Primary maintainer, all core development |
+| `tmc` | 15 (5%) | Author of langchaingo, likely dependency-related contributions |
+| `jemygraw` | 2 (<1%) | Minor contributions |
+| `zxmfke` | 2 (<1%) | BettaFish LLM provider support |
+| `jayn1985` | 1 (<1%) | Minor contribution |
+| `tongjichao` | 1 (<1%) | Minor contribution |
+
+**Effective bus factor = 1.** Despite 6 listed contributors, `smallnest` authored 93% of all commits. The project would stall without their continued involvement.
+
+### Development Activity
+
+Weekly reports (`weekly/week001.md` through `week008.md`) cover the period **2025-12-01 to 2026-01-25** — 8 weeks of intensive, documented development. The last push was **2026-02-24**, which is ~3 months before this report's date (2026-05-30). This gap may indicate a development cycle pause, the maintainer working on other projects, or the project reaching a stable plateau after rapid initial growth. Not necessarily a red flag, but worth monitoring.
 
 ### Maintainer Credibility
 

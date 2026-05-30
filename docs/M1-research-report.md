@@ -291,7 +291,7 @@ Bubbletea's architecture is message-driven: `tea.Cmd` returns `tea.Msg`, which u
 
 ```go
 // In a tea.Cmd:
-func watchGraph(ctx context.Context, stream *graph.StreamResult[TwirState]) tea.Cmd {
+func watchGraph(ctx context.Context, stream *graph.StreamResult[TwirlState]) tea.Cmd {
     return func() tea.Msg {
         event, ok := <-stream.Events
         if !ok {

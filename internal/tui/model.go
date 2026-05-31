@@ -299,6 +299,14 @@ func (m model) viewStatus() string {
 
 	// Fill available rows, most important content first.
 	avail := m.d.panelInnerH - 1
+
+	// Orchestrator online indicator — always shown if possible.
+	if avail > 0 {
+		sb.WriteString(styleActive.Render(
+			trunc("● Online", m.d.rightW),
+		) + "\n")
+		avail--
+	}
 	if avail > 0 {
 		sb.WriteString(styleLabel.Render(
 			trunc("Phase", m.d.rightW),

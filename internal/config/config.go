@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -11,6 +12,36 @@ import (
 type Config struct {
 	Cursor string `toml:"cursor"`
 	Blink  bool   `toml:"blink"`
+	LLM    LLM    `toml:"llm"`
+}
+
+// LLM holds the LLM provider configuration.
+type LLM struct {
+	Provider string `toml:"provider"`
+	APIKey   string `toml:"api_key"`
+	BaseURL  string `toml:"base_url"`
+	Model    string `toml:"model"`
+}
+
+// IsZero returns true if no LLM fields are set.
+func (l LLM) IsZero() bool {
+	return l.Provider == "" && l.APIKey == "" &&
+		l.BaseURL == "" && l.Model == ""
+}
+
+// ResolveAPIKey expands env var references (e.g. "$OPENAI_API_KEY")
+// in the APIKey field. Returns the expanded value or an error if the
+// referenced env var is unset.
+func (l LLM) ResolveAPIKey() (string, error) {
+	v := l.APIKey
+	if strings.HasPrefix(v, "$") {
+		env := os.Getenv(v[1:])
+		if env == "" {
+			return "", os.ErrNotExist
+		}
+		return env, nil
+	}
+	return v, nil
 }
 
 // Default returns the default configuration.

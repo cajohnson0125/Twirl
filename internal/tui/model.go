@@ -331,6 +331,7 @@ func (m model) startStreaming(
 	m.streamCh = make(chan streamMsg, 64)
 	m.input.Placeholder = "Waiting for response..."
 	m.input.Blur()
+	m.input.Reset()
 	m.syncOutput()
 	m.output.GotoBottom()
 

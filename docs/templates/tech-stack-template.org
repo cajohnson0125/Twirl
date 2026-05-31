@@ -1,0 +1,22 @@
+#+TITLE: Technology Stack for [Project Name]
+
+* Frontend
+** Framework
+- *Framework:* [e.g., Solid.js, React, Vue]
+- *Routing:* [e.g., @solidjs/router, React Router, Vue Router]
+- *Styling:* [e.g., CSS modules, Tailwind, styled-components]
+- *Design System:* [e.g., Custom CSS variables, Material UI, Shadcn]
+- *UI Components:* [e.g., Custom components, component library]
+- *Icons:* [e.g., unplugin-icons, react-icons, heroicons]
+- *Language:* [e.g., TypeScript, JavaScript]
+- *Build Tool:* [e.g., Vite, Webpack, Turbopack]
+- *CSS Processing:* [e.g., lightningcss, PostCSS, Sass]
+
+** Development Tools
+- *Package Manager:* [e.g., pnpm, npm, yarn, bun]
+- *Linting:* [e.g., ESLint with custom config]
+- *Formatting:* [e.g., Prettier, Biome]
+- *Type Checking:* [e.g., TypeScript, JSDoc]
+- *Git Hooks:* [e.g., Lefthook, Husky, lint-staged]
+- *Testing:* [e.g., Vitest, Jest, Playwright]
+- *Other Tools:* [List any additional development tools, plugins, or utilities]

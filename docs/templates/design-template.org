@@ -1,0 +1,25 @@
+#+TITLE: [Project Name] - Design
+
+* System Overview
+[High-level description of how the system works]
+
+* Major Features
+[Main features and their high-level implementation approach]
+
+** [Feature 1]
+[How this feature will be implemented at a high level]
+
+** [Feature 2]
+[How this feature will be implemented at a high level]
+
+* Data Flow
+[How data moves through the system at a high level]
+
+* Technology Choices
+[Key technology decisions and rationale]
+
+* Design Principles
+[Guiding principles for the implementation]
+
+* Architecture Approach
+[Overall architectural strategy - e.g., three-tier, event-driven, etc.]

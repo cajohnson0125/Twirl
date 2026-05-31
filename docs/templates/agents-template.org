@@ -1,0 +1,44 @@
+#+title: Project Overview for [Project Name]
+
+# Org Mode Syntax Reference
+# Title - +title
+# Heading 1 - * H1
+# Heading 2 - ** H2
+# Heading 3 - *** H3
+# Heading 4 - **** H4
+# Heading 5 - ***** H5
+# Heading 6 - ****** H6
+# Bullet list - - item
+# Numbered list - 1. item
+# Unchecked box - - [ ] item
+# In-progress box - - [-] item
+# Completed box - - [X] item
+# Bold - *bold*
+# Italics - /italics/
+# Underline - _underline_
+# Strikethrough - +strikethrough+
+# Code - ~code~
+# Verbatim - =verbatim=
+
+* Document Relationships
+
+AGENTS.org (barrel/overview)
+├── docs/project/overview/requirements.org (vision, features, non-goals)
+├── docs/project/overview/tech-stack.org (dependencies and tools)
+├── docs/project/overview/design.org (system design, key decisions, trade-offs)
+├── docs/project/overview/architecture.org (detailed implementation)
+├── docs/project/overview/file-organization.org (folder structure)
+├── docs/project/coding-guides/coding-laws.org (project coding standards)
+└── docs/project/coding-guides/styling-guide.org (project styling standards)
+
+* What is [Project Name]?
+[Provide a brief description of the project, its purpose]
+
+* Strict Project Guidelines
+Before responding or contributing to the project, please ensure that you have reviewed the following guidelines:
+
+- [ ] Review coding laws and regulations applicable to the project.
+- [ ] Follow the coding standards and best practices outlined in the project documentation.
+- [ ] Use consistent file organization and naming conventions as specified in the project guidelines.
+- [ ] Ensure that your code is of high quality and maintainable, adhering to the project's coding standards.
+- [ ] Document all changes and decisions made during the development process, including any new features, bug fixes, or architectural changes.

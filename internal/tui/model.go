@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -136,6 +137,8 @@ func newModel() model {
 	ti.Placeholder = "Type a message..."
 	ti.Focus()
 	ti.CharLimit = 256
+	ti.Cursor.SetMode(cursor.CursorStatic)
+	ti.Cursor.Style = lipgloss.NewStyle()
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -144,7 +147,7 @@ func newModel() model {
 	return model{
 		input: ti,
 		spin:  sp,
-		phase: "Initializing",
+		phase: "Idle",
 		agents: []agent{
 			{name: "Brainstorm", status: statusActive},
 			{name: "Research", status: statusIdle},
@@ -158,10 +161,7 @@ func newModel() model {
 			{name: "Scribe", status: statusIdle},
 		},
 		logs: []string{
-			"⟳ Twirl starting...",
-			"✓ Agents registered",
-			"✓ State loaded",
-			"→ Awaiting task",
+			"Twirl ready",
 		},
 	}
 }
@@ -242,7 +242,7 @@ var noWrap = lipgloss.NewStyle().Inline(true)
 func (m model) viewAgents() string {
 	var sb strings.Builder
 	sb.WriteString(stylePanelTitle.Render(
-		trunc("DISPATCH", m.d.leftW),
+		trunc("AGENTS", m.d.leftW),
 	) + "\n")
 
 	// Title takes 1 row. Only render agents that fit.

@@ -170,82 +170,74 @@ Each candidate scores 1-5 per criterion:
 
 | Rank | Candidate | Weighted Score | Status |
 |---|---|---|---|
-| 1 | **LangGraphGo** | 489 | **Recommended** -- see rationale below |
-| 2 | Custom Channel-Based | 494 | Strong alternative (see rationale) |
+| 1 | **Custom Channel-Based** | 494 | **Chosen** -- see Decision below |
+| 2 | LangGraphGo | 489 | Close alternative (see Decision) |
 | 3 | Temporal | 420 | Eliminated -- requires external server |
 | 4 | go-workflows | 415 | Eliminated -- determinism conflicts |
 | 5 | Hollywood | 398 | Eliminated -- no state persistence |
 
-**Note on scoring:** Custom Channel-Based scores 5 points higher than LangGraphGo (1.0% gap) due to perfect scores on Go fit and maximum flexibility. However, the recommendation favors LangGraphGo based on pragmatic factors not fully captured by the scoring: M1-validated integration, existing abstractions that save 1-2 weeks of development, and identical manual-persistence burden. See Rationale section below for full analysis.
+**Note on scoring:** Custom Channel-Based scores 5 points higher than LangGraphGo (1.0% gap) due to perfect scores on Go fit and maximum flexibility. The 1% gap was not decisive on its own — the final decision was based on qualitative factors (see Decision section below).
 
 ---
 
-## Recommendation
+## Decision
 
-### Primary Recommendation: LangGraphGo
+### Chosen: Custom Channel-Based Engine (Pure Go)
 
-**Use the `graph/` package from LangGraphGo as the orchestration engine.**
+**Build a custom orchestration engine using Go's standard concurrency primitives.**
+
+**Decided:** 2026-05-30
 
 ### Rationale
 
-LangGraphGo scores within 1% of a custom engine but provides significant advantages that justify the 5-point gap closing in LangGraphGo's favor:
+Both LangGraphGo and the custom engine scored within 1% (494 vs 489) and share the same weaknesses (manual persistence, manual error recovery). The deciding factors:
 
-1. **M1 validation is concrete, not theoretical.** The integration path between LangGraphGo, fantasy, and Bubbletea has been validated with evidence from source code. The streaming integration pattern (channel-based `StreamResult` mapping to `tea.Cmd`/`tea.Msg`) is proven. A custom engine would need to build and validate this from scratch.
+1. **You build the hard parts either way.** LangGraphGo has no persistence, no retry, no error recovery. You implement those yourself regardless of choice. The only thing LangGraphGo saves you is routing, parallel, and streaming abstractions — which are straightforward Go patterns (if/else, errgroup, channels).
 
-2. **Built-in abstractions save development time.** LangGraphGo provides conditional edges, parallel fan-out (`FanOutFanIn`, `AddParallelNodes`), HITL interrupts (`InterruptBefore`/`ResumeFrom`), subgraphs, and streaming out of the box. Building these from scratch in a custom engine is 1-2 weeks of development, testing, and debugging.
+2. **Plain Go beats learning a library API.** LangGraphGo requires learning its graph compilation, conditional edges, `Command.Goto`, `InterruptBefore`/`ResumeFrom` API. A custom engine is just `if/else` and channels — no abstraction layer to fight.
 
-3. **The static graph topology is not a constraint for Twirl.** Twirl's agent roles are known at compile time. The dynamic part is routing -- which agent runs next based on context. LangGraphGo's conditional edges and `Command.Goto` provide exactly this. There is no realistic scenario where Twirl needs to invent new agent types at runtime.
+3. **No dependency risk.** LangGraphGo has bus factor = 1 and is 6 months old. A custom engine has zero external dependencies. For the core of your system, that matters.
 
-4. **No persistence is not a unique weakness.** The custom engine also has manual persistence (scored identically at 3/5). LangGraphGo does not lose ground here -- both approaches serialize state to YAML/JSON. The difference is that LangGraphGo gives you a head start on everything else while you build persistence once, on your terms.
+4. **Maximum flexibility.** The engine is designed exactly for Twirl's dispatch-and-return pattern. No working around a library's assumptions about how workflows should be structured.
 
-5. **Fork viability mitigates bus factor risk.** The core `graph/` package is ~2000 lines of well-tested code with zero external dependencies (only stdlib imports). If the maintainer stops, forking is realistic -- the code is readable, documented with 90+ examples, and has no transitive dependencies.
+### What LangGraphGo Would Have Given (And Why It Wasn't Enough)
 
-6. **Streaming is first-class, not an afterthought.** LangGraphGo's `StreamingStateGraph[S]` provides channel-based events with filtering, backpressure handling, and cancellation. This maps directly to Bubbletea's message model. A custom engine would need to design this from scratch.
+- Conditional edges → plain Go `if/else` on state
+- Parallel fan-out → `errgroup` with goroutines
+- HITL interrupts → pause on channel, wait for response channel
+- Streaming → channels feeding Bubbletea `tea.Msg`
+- Subgraphs → function calls
 
-### Against the Custom Engine
-
-The custom engine scored higher on Go fit (5 vs 4) and tied on everything else except maturity (where neither scores high). The 5-point advantage comes from:
-- No graph compilation step (more "idiomatic Go")
-- No dependency risk at all
-
-These advantages are outweighed by:
-- 1-2 weeks of development time to replicate what LangGraphGo already provides
-- No M1-style validation of the integration path
-- The same manual persistence burden
-- The same need to design streaming, HITL, and parallel execution patterns
+All of these are natural Go patterns. The ~2000-line LangGraphGo library is an abstraction over things Go already does well natively.
 
 ### Example Flow Validation
 
-The Scoping -> Planning -> Execution flow from `docs/example-flow-brainstorm.md` maps directly to LangGraphGo:
+The Scoping -> Planning -> Execution flow from `docs/example-flow-brainstorm.md` maps naturally to a custom engine:
 
-- **Nodes:** Orchestrator, Brainstormer, Researcher, Planner, PlanReviewer, Coder, CodeReviewer, TechWriter, Presenter, Documentation
-- **Conditional edges:** "user approved?" -> Planning Phase or loop back to Researcher; "plan review passed?" -> execution or loop back to Planner; "fix applied?" -> done or loop back to Coder (with max 3 loop count)
-- **Parallel execution:** Multiple Specialist Coders dispatched simultaneously
-- **HITL gates:** `InterruptBefore` on plan approval node, code review results node
-- **Loop-backs:** Conditional edges routing back to previous nodes with updated state (e.g., `Command.Goto` for the "need more info" -> Researcher loop)
-- **Streaming:** All agent dispatches and results stream to TUI via `StreamResult.Events`
+- **Agent dispatch:** coordinator spawns agent goroutine, collects result via channel
+- **Conditional routing:** `if/else` on result state (approved? needs more info? pass/fail?)
+- **Loops:** `for` with break conditions (plan review fail → re-dispatch Planner, fix loop max 3)
+- **Parallel execution:** `errgroup` spawns multiple Coder goroutines, waits for all
+- **HITL:** coordinator pauses, sends to TUI channel, waits on response channel
+- **Streaming:** agent goroutines send events to channel consumed by Bubbletea
 
-This works naturally within LangGraphGo's graph model. The engine is general-purpose -- the same graph structure can express any workflow with these agent roles, not just the specific Scoping -> Planning -> Execution flow.
+### Candidates Eliminated
 
-### Deal-Breakers Called Out
-
-- **Temporal: DEAL-BREAKER.** Requires an external server. Eliminated regardless of score.
-- **Hollywood: DEAL-BREAKER.** No state persistence. Eliminated regardless of score.
-- **go-workflows: DEAL-BREAKER.** Determinism restrictions conflict with AI agent orchestration. Eliminated regardless of score.
-- **LangGraphGo: NO DEAL-BREAKERS.** Static graph topology is a design characteristic, not a blocker.
-- **Custom engine: NO DEAL-BREAKERS.** Significant development risk but no fundamental incompatibility.
+- **Temporal: DEAL-BREAKER.** Requires an external server.
+- **Hollywood: DEAL-BREAKER.** No state persistence.
+- **go-workflows: DEAL-BREAKER.** Determinism restrictions conflict with AI agent orchestration.
 
 ---
 
-## Risk Mitigation for LangGraphGo
+## Risk Mitigation
 
 | Risk | Mitigation |
 |---|---|
-| Bus factor = 1 | Pin to a specific commit in `go.mod`. The `graph/` package is ~2000 lines with zero deps -- forking is viable. |
-| Young project (6 months) | The maintainer (smallnest) also maintains rpcx (8k+ stars), demonstrating long-term open-source commitment. |
-| No built-in persistence | Build persistence as a thin layer: serialize state to YAML after each node execution. State is a typed struct -- this is straightforward. |
-| No built-in retry/error recovery | Wrap node functions with retry middleware. LangGraphGo's node functions are plain Go -- middleware is trivial. |
-| API changes (young library) | Pin version in `go.mod`. The core API (AddNode, AddEdge, AddConditionalEdge, Compile, Invoke, Stream) is small and stable. |
+| Must build from scratch | Core engine is ~200-300 lines of idiomatic Go. Hard parts (persistence, retry) must be built regardless of choice. |
+| No proven track record | Start minimal. Add complexity only when needed. Write tests from day one. |
+| Concurrent code bugs | Use Go's race detector (`-race`). Keep the coordination logic simple and synchronous — only agent execution is concurrent. |
+| State corruption | Serialize after each step. Keep state format versioned. Write migration tests. |
+| Scope creep | YAGNI. Build only what the current workflow needs. Generalize later. |
 
 ---
 
@@ -259,8 +251,7 @@ Per the grooming doc: this evaluation covers the orchestration runtime only. The
 
 ---
 
-## Next Steps (After User Approval)
+## Next Steps
 
-1. Update `docs/project/tech-stack.org` with LangGraphGo as the chosen orchestration approach
-2. Pin the LangGraphGo version in the initial `go.mod`
-3. Begin implementation of the orchestration layer using the `graph/` package
+1. Update `docs/project/tech-stack.org` with custom channel-based engine as the chosen approach
+2. Begin implementation of the orchestration layer

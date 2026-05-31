@@ -54,5 +54,4 @@ var (
 	styleValue    = lipgloss.NewStyle().Bold(true).Foreground(clrText)
 	styleFooter   = lipgloss.NewStyle().Foreground(clrMuted)
 	stylePrompt   = lipgloss.NewStyle().Bold(true).Foreground(clrActive)
-	styleTooSmall = lipgloss.NewStyle().Foreground(clrMuted).Italic(true)
 )

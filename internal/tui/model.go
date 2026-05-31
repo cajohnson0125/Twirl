@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/cajohnson0125/Twirl/internal/config"
 	"github.com/cajohnson0125/Twirl/internal/llm"
@@ -111,11 +113,14 @@ type model struct {
 	cs     cursorStyle
 
 	// LLM streaming state.
-	llmClient  *llm.Client
-	llmCancel  context.CancelFunc
-	streaming  bool
-	streamCh   chan streamMsg
+	llmClient   *llm.Client
+	llmCancel   context.CancelFunc
+	streaming   bool
+	streamCh    chan streamMsg
 	responseBuf strings.Builder
+
+	// Markdown renderer for AI responses.
+	mdRenderer *glamour.TermRenderer
 }
 
 type cursorStyle struct {
@@ -132,6 +137,19 @@ func parseCursorShape(s string) tea.CursorShape {
 	default:
 		return tea.CursorBlock
 	}
+}
+
+// newRenderer creates a Glamour markdown renderer for the
+// given content width and dark/light theme.
+func newRenderer(width int) (*glamour.TermRenderer, error) {
+	style := "dark"
+	if !lipgloss.HasDarkBackground(os.Stdin, os.Stdout) {
+		style = "light"
+	}
+	return glamour.NewTermRenderer(
+		glamour.WithStandardStyle(style),
+		glamour.WithWordWrap(width),
+	)
 }
 
 func newModel(
@@ -212,7 +230,7 @@ func newModel(
 	} else {
 		m.logs = append(m.logs,
 			styleLabel.Render(
-				"No LLM configured. "+
+				"No LLM configured. " +
 					"Edit ~/.config/twirl/config.toml",
 			),
 		)
@@ -248,13 +266,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if val := m.input.Value(); val != "" {
 				if m.llmClient == nil {
 					m.logs = append(m.logs,
-						"> "+val,
+						styleUser.Render("You: ")+val,
 					)
 					m.logs = append(m.logs,
 						styleError.Render(
 							"No LLM configured. "+
-								"Edit " +
-								"~/.config/twirl/" +
+								"Edit "+
+								"~/.config/twirl/"+
 								"config.toml",
 						),
 					)
@@ -291,6 +309,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.d = computeDims(m.width, m.height)
 		m.input.SetWidth(max(1, m.d.vpContentW-4))
 
+		// Re-create renderer at new width.
+		if r, err := newRenderer(
+			max(20, m.d.vpContentW-4),
+		); err == nil {
+			m.mdRenderer = r
+		}
+
 		if !m.ready {
 			m.output = viewport.New(
 				viewport.WithWidth(m.d.vpContentW),
@@ -323,8 +348,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) startStreaming(
 	prompt string,
 ) (tea.Model, tea.Cmd) {
-	m.logs = append(m.logs, "> "+prompt)
-	m.logs = append(m.logs, "Thinking...")
+	m.logs = append(m.logs,
+		styleUser.Render("You: ")+prompt,
+	)
 	m.phase = "LLM ▸"
 	m.streaming = true
 	m.responseBuf.Reset()
@@ -372,14 +398,6 @@ func (m model) finishStreaming(err error) tea.Model {
 	m.input.Placeholder = "Type a message..."
 	m.input.Focus()
 
-	// Remove the "Thinking..." placeholder.
-	for i := len(m.logs) - 1; i >= 0; i-- {
-		if m.logs[i] == "Thinking..." {
-			m.logs = m.logs[:i]
-			break
-		}
-	}
-
 	if err != nil {
 		var errMsg string
 		// Provide user-friendly error messages.
@@ -392,23 +410,58 @@ func (m model) finishStreaming(err error) tea.Model {
 			styleError.Render(errMsg),
 		)
 	} else if m.responseBuf.Len() > 0 {
-		m.logs = append(m.logs, m.responseBuf.String())
+		m.logs = append(m.logs, m.renderMarkdown(
+			m.responseBuf.String(),
+		))
 	}
 
 	m.responseBuf.Reset()
+
+	// Turn separator.
+	m.logs = append(m.logs,
+		styleDivider.Render(
+			strings.Repeat("─", max(20, m.d.vpContentW)),
+		),
+	)
+
 	m.syncOutput()
 	m.output.GotoBottom()
 	return m
 }
 
+// renderMarkdown renders text through the Glamour renderer.
+// Falls back to raw text if the renderer is unavailable.
+func (m model) renderMarkdown(text string) string {
+	if m.mdRenderer == nil {
+		return styleAI.Render("AI: ") + text
+	}
+	rendered, err := m.mdRenderer.Render(text)
+	if err != nil {
+		return styleAI.Render("AI: ") + text
+	}
+	return styleAI.Render("AI:") + "\n" + rendered
+}
+
 // syncOutput rebuilds the viewport content from logs,
-// wrapping each line to the viewport content width.
+// including the in-flight streaming response if active.
 func (m *model) syncOutput() {
 	w := max(20, m.d.vpContentW)
 	var wrapped []string
 	for _, line := range m.logs {
 		wrapped = append(wrapped, wrapLine(line, w)...)
 	}
+
+	// During streaming, append the partial response.
+	if m.streaming && m.responseBuf.Len() > 0 {
+		wrapped = append(wrapped,
+			wrapLine(
+				styleAI.Render("AI: ")+
+					m.responseBuf.String(),
+				w,
+			)...,
+		)
+	}
+
 	m.output.SetContent(strings.Join(wrapped, "\n"))
 }
 

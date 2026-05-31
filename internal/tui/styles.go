@@ -41,6 +41,15 @@ var (
 
 	// clrTitle — bold panel title color.
 	clrTitle = ld(lipgloss.Color("5"), lipgloss.Color("13"))
+
+	// clrUser — color for "You:" prefix in chat.
+	clrUser = ld(lipgloss.Color("5"), lipgloss.Color("13"))
+
+	// clrAI — color for "AI:" prefix in chat.
+	clrAI = ld(lipgloss.Color("6"), lipgloss.Color("14"))
+
+	// clrDivider — color for turn separator lines.
+	clrDivider = ld(lipgloss.Color("0"), lipgloss.Color("8"))
 )
 
 var (
@@ -65,4 +74,8 @@ var (
 	styleInputBar = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(clrBorder)
+
+	styleUser    = lipgloss.NewStyle().Bold(true).Foreground(clrUser)
+	styleAI      = lipgloss.NewStyle().Bold(true).Foreground(clrAI)
+	styleDivider = lipgloss.NewStyle().Foreground(clrDivider)
 )

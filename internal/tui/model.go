@@ -114,6 +114,7 @@ type model struct {
 
 	// LLM streaming state.
 	llmClient   *llm.Client
+	llmCfg      config.LLM
 	llmCancel   context.CancelFunc
 	streaming   bool
 	streamCh    chan streamMsg
@@ -203,30 +204,14 @@ func newModel(
 		logs: []string{"Twirl ready"},
 	}
 
-	// Initialize LLM client if configured.
+	// Store LLM config for lazy init on first message.
 	if !llmCfg.IsZero() {
-		client, err := llm.New(llmCfg)
-		if err != nil {
-			m.logs = append(m.logs,
-				styleError.Render(
-					"LLM config error: "+err.Error(),
-				),
-			)
-			m.logs = append(m.logs,
-				styleLabel.Render(
-					"Edit ~/.config/twirl/config.toml " +
-						"to configure LLM.",
-				),
-			)
-		} else {
-			m.llmClient = client
-			m.logs = append(m.logs,
-				styleActive.Render(
-					"LLM connected: "+llmCfg.Model+
-						" @ "+llmCfg.BaseURL,
-				),
-			)
-		}
+		m.llmCfg = llmCfg
+		m.logs = append(m.logs,
+			styleLabel.Render(
+				"LLM: "+llmCfg.Model+" @ "+llmCfg.BaseURL,
+			),
+		)
 	} else {
 		m.logs = append(m.logs,
 			styleLabel.Render(
@@ -264,7 +249,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if val := m.input.Value(); val != "" {
-				if m.llmClient == nil {
+				if m.llmCfg.IsZero() {
 					m.logs = append(m.logs,
 						styleUser.Render("You: ")+val,
 					)
@@ -326,6 +311,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.output.SetWidth(m.d.vpContentW)
 			m.output.SetHeight(m.d.vpContentH)
+			m.syncOutput()
 		}
 	}
 
@@ -348,6 +334,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) startStreaming(
 	prompt string,
 ) (tea.Model, tea.Cmd) {
+	// Lazy-init LLM client on first message.
+	if m.llmClient == nil {
+		client, err := llm.New(m.llmCfg)
+		if err != nil {
+			m.logs = append(m.logs,
+				styleUser.Render("You: ")+prompt,
+			)
+			m.logs = append(m.logs,
+				styleError.Render(
+					"LLM error: "+err.Error(),
+				),
+			)
+			m.syncOutput()
+			m.input.Reset()
+			return m, nil
+		}
+		m.llmClient = client
+	}
+
 	m.logs = append(m.logs,
 		styleUser.Render("You: ")+prompt,
 	)

@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 const (
@@ -18,87 +19,56 @@ const (
 
 	// Upper bound for side panel content width.
 	maxPanelW = 32
-
-	// Width thresholds for progressive panel collapse.
-	// Below showBoth, only the left panel is shown.
-	// Below showLeft, only the center panel is shown.
-	showBoth = 70
-	showLeft = 50
 )
 
 // dims holds all computed layout dimensions derived from terminal size.
-// Zero width for a side panel means that panel is not rendered.
+// All three panels always render — widths shrink smoothly as the
+// terminal narrows. No panel dropping, no size thresholds.
 type dims struct {
-	leftW       int // content width of agents panel (0 = hidden)
-	rightW      int // content width of status panel (0 = hidden)
+	leftW       int // content width of agents panel (always >= 1)
+	rightW      int // content width of status panel (always >= 1)
 	centerW     int // content width of output panel (always >= 1)
-	panelInnerH int // content height of all panels (always >= 1)
+	panelInnerH int // content height of all panels
 	vpH         int // viewport height inside the center panel
 }
 
-// computeDims derives all panel dimensions from terminal width/height.
+// computeDims derives panel dimensions from terminal width/height.
 //
-// Layout is progressive — side panels collapse as the terminal narrows:
-//
-//	width >= 70:  three panels (left + center + right)
-//	width >= 50:  two panels   (left + center)
-//	width <  50:  one panel    (center only, full width)
-//
-// This ensures the layout works at any terminal size, including tiling
-// window manager splits. All values are clamped to >= 0.
+// All three panels always render. Side panel widths scale proportionally
+// with terminal width. Center panel takes all remaining space.
+// No thresholds, no panel dropping — continuous smooth scaling.
 func computeDims(w, h int) dims {
-	var leftW, rightW int
+	leftW := clamp(int(float64(w)*leftRatio), 1, maxPanelW)
+	rightW := clamp(int(float64(w)*rightRatio), 1, maxPanelW)
 
-	switch {
-	case w >= showBoth:
-		leftW = clamp(int(float64(w)*leftRatio), 1, maxPanelW)
-		rightW = clamp(int(float64(w)*rightRatio), 1, maxPanelW)
-	case w >= showLeft:
-		leftW = clamp(int(float64(w)*leftRatio), 1, maxPanelW)
-		rightW = 0
-	default:
-		leftW = 0
-		rightW = 0
-	}
+	// 6 chars consumed by borders (2 per panel).
+	centerW := w - leftW - rightW - 6
 
-	// Account for side panel borders (2 chars each for rendered panels).
-	sideBorders := 0
-	if leftW > 0 {
-		sideBorders += 2
-	}
-	if rightW > 0 {
-		sideBorders += 2
-	}
-
-	// Center content = total - side panels - side borders - center borders.
-	centerW := w - leftW - rightW - sideBorders - 2
+	// If center got squeezed, steal from side panels proportionally.
 	if centerW < 1 {
+		deficit := 1 - centerW
+		leftW = max(1, leftW-deficit/2)
+		rightW = max(1, rightW-(deficit-deficit/2))
 		centerW = 1
 	}
 
-	// Panels occupy all vertical space except: input(1) + footer(1) + borders(2).
-	panelInnerH := h - 4
-	if panelInnerH < 1 {
-		panelInnerH = 1
-	}
-
-	// Viewport sits inside the center panel below: title(1) + blank line(1).
-	vpH := panelInnerH - 2
-	if vpH < 1 {
-		vpH = 1
-	}
+	panelInnerH := max(1, h-4)
+	vpH := max(1, panelInnerH-2)
 
 	return dims{leftW, rightW, centerW, panelInnerH, vpH}
 }
 
 func clamp(v, lo, hi int) int {
-	if v < lo {
-		return lo
+	return max(lo, min(v, hi))
+}
+
+// trunc clips s to n visible terminal columns, appending "…" when
+// truncated. Returns "" for n <= 0.
+func trunc(s string, n int) string {
+	if n <= 0 {
+		return ""
 	}
-	if v > hi {
-		return hi
-	}
-	return v
+	return runewidth.Truncate(s, n, "…")
 }
 
 // --- Agent types ---
@@ -194,7 +164,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.d = computeDims(m.width, m.height)
-		m.input.Width = clamp(m.width-4, 1, m.width)
+		m.input.Width = max(1, m.width-4)
 
 		if !m.ready {
 			m.output = viewport.New(m.d.centerW, m.d.vpH)
@@ -226,38 +196,32 @@ func (m model) View() string {
 		return "\n  Loading..."
 	}
 
-	// Build the panel row — only include panels with width > 0.
-	var panels []string
-	if m.d.leftW > 0 {
-		panels = append(panels, m.viewAgents())
-	}
-	panels = append(panels, m.viewOutput())
-	if m.d.rightW > 0 {
-		panels = append(panels, m.viewStatus())
-	}
-
-	row := lipgloss.JoinHorizontal(lipgloss.Top, panels...)
-
-	footer := styleFooter.Width(m.width).Render(
-		"ctrl+c quit  •  enter send  •  ↑↓ scroll",
+	panels := lipgloss.JoinHorizontal(lipgloss.Top,
+		m.viewAgents(),
+		m.viewOutput(),
+		m.viewStatus(),
 	)
 
-	return row + "\n" + m.viewInput() + "\n" + footer
+	return panels + "\n" + m.viewInput() + "\n" + m.viewFooter()
 }
 
 func (m model) viewAgents() string {
 	var sb strings.Builder
-	sb.WriteString(stylePanelTitle.Render("AGENTS") + "\n\n")
+	sb.WriteString(stylePanelTitle.Render(trunc("AGENTS", m.d.leftW)) + "\n\n")
+
+	// Indicator char + space = ~2 cols. Name gets the rest.
+	nameW := max(1, m.d.leftW-2)
 
 	for _, a := range m.agents {
+		name := trunc(a.name, nameW)
 		var line string
 		switch a.status {
 		case statusActive:
-			line = fmt.Sprintf("%s %s", m.spin.View(), styleActive.Render(a.name))
+			line = fmt.Sprintf("%s %s", m.spin.View(), styleActive.Render(name))
 		case statusDone:
-			line = fmt.Sprintf("%s %s", styleDone.Render("✓"), styleDone.Render(a.name))
+			line = fmt.Sprintf("%s %s", styleDone.Render("✓"), styleDone.Render(name))
 		default:
-			line = fmt.Sprintf("%s %s", styleIdle.Render("○"), styleIdle.Render(a.name))
+			line = fmt.Sprintf("%s %s", styleIdle.Render("○"), styleIdle.Render(name))
 		}
 		sb.WriteString(line + "\n")
 	}
@@ -279,11 +243,13 @@ func (m model) viewOutput() string {
 
 func (m model) viewStatus() string {
 	var sb strings.Builder
-	sb.WriteString(stylePanelTitle.Render("STATUS") + "\n\n")
-	sb.WriteString(styleLabel.Render("Phase") + "\n")
-	sb.WriteString(styleValue.Render(m.phase) + "\n\n")
-	sb.WriteString(styleLabel.Render("Step") + "\n")
-	sb.WriteString(styleValue.Render(fmt.Sprintf("%d / %d", m.step, m.totalSteps)) + "\n")
+	sb.WriteString(stylePanelTitle.Render(trunc("STATUS", m.d.rightW)) + "\n\n")
+	sb.WriteString(styleLabel.Render(trunc("Phase", m.d.rightW)) + "\n")
+	sb.WriteString(styleValue.Render(trunc(m.phase, m.d.rightW)) + "\n\n")
+	sb.WriteString(styleLabel.Render(trunc("Step", m.d.rightW)) + "\n")
+	sb.WriteString(styleValue.Render(
+		trunc(fmt.Sprintf("%d / %d", m.step, m.totalSteps), m.d.rightW),
+	) + "\n")
 
 	return stylePanelBorder.
 		Width(m.d.rightW).
@@ -293,6 +259,20 @@ func (m model) viewStatus() string {
 
 func (m model) viewInput() string {
 	return fmt.Sprintf("%s %s", stylePrompt.Render(">"), m.input.View())
+}
+
+func (m model) viewFooter() string {
+	var parts []string
+	parts = append(parts, "ctrl+c quit")
+	if m.width > 30 {
+		parts = append(parts, "enter send")
+	}
+	if m.width > 50 {
+		parts = append(parts, "↑↓ scroll")
+	}
+	return styleFooter.Width(m.width).Render(
+		strings.Join(parts, "  •  "),
+	)
 }
 
 // Run starts the TUI program.

@@ -16,14 +16,11 @@ import "github.com/charmbracelet/lipgloss"
 //	8 BrBlack  9 BrRed  10 BrGreen 11 BrYellow
 //	12 BrBlue 13 BrMagenta 14 BrCyan 15 BrWhite
 var (
-	// clrAccent — vibrant highlight for spinners and prompts.
+	// clrAccent — vibrant highlight for prompts and accents.
 	clrAccent = lipgloss.AdaptiveColor{Light: "5", Dark: "13"}
 
 	// clrActive — green for active/running states.
 	clrActive = lipgloss.AdaptiveColor{Light: "2", Dark: "10"}
-
-	// clrDone — yellow/gold for completed states.
-	clrDone = lipgloss.AdaptiveColor{Light: "3", Dark: "11"}
 
 	// clrMuted — subdued text for idle states, labels, footer.
 	clrMuted = lipgloss.AdaptiveColor{Light: "0", Dark: "8"}
@@ -49,7 +46,6 @@ var (
 
 	styleActive   = lipgloss.NewStyle().Foreground(clrActive)
 	styleIdle     = lipgloss.NewStyle().Foreground(clrMuted)
-	styleDone     = lipgloss.NewStyle().Foreground(clrDone)
 	styleLabel    = lipgloss.NewStyle().Foreground(clrMuted)
 	styleValue    = lipgloss.NewStyle().Bold(true).Foreground(clrText)
 	styleFooter   = lipgloss.NewStyle().Foreground(clrMuted)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -108,7 +107,6 @@ type agentStatus int
 const (
 	statusIdle agentStatus = iota
 	statusActive
-	statusDone
 )
 
 type agent struct {
@@ -128,11 +126,9 @@ type model struct {
 	input  textinput.Model
 	spin   spinner.Model
 
-	agents     []agent
-	logs       []string
-	step       int
-	totalSteps int
-	phase      string
+	agents []agent
+	logs   []string
+	phase  string
 }
 
 func newModel() model {
@@ -140,18 +136,15 @@ func newModel() model {
 	ti.Placeholder = "Type a message..."
 	ti.Focus()
 	ti.CharLimit = 256
-	ti.Cursor.SetMode(cursor.CursorHide) // use terminal's native cursor
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	sp.Style = lipgloss.NewStyle().Foreground(clrAccent)
 
 	return model{
-		input:      ti,
-		spin:       sp,
-		step:       0,
-		totalSteps: 10,
-		phase:      "Initializing",
+		input: ti,
+		spin:  sp,
+		phase: "Initializing",
 		agents: []agent{
 			{name: "Brainstorm", status: statusActive},
 			{name: "Research", status: statusIdle},
@@ -165,7 +158,7 @@ func newModel() model {
 			{name: "Scribe", status: statusIdle},
 		},
 		logs: []string{
-			"⟳ Twirl orchestrator starting...",
+			"⟳ Twirl starting...",
 			"✓ Agents registered",
 			"✓ State loaded",
 			"→ Awaiting task",
@@ -174,7 +167,7 @@ func newModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.spin.Tick, textinput.Blink, tea.ShowCursor)
+	return tea.Batch(m.spin.Tick, textinput.Blink)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -262,14 +255,10 @@ func (m model) viewAgents() string {
 		}
 		name := trunc(a.name, nameW)
 		var line string
-		switch a.status {
-		case statusActive:
+		if a.status == statusActive {
 			line = fmt.Sprintf("%s %s",
-				m.spin.View(), styleActive.Render(name))
-		case statusDone:
-			line = fmt.Sprintf("%s %s",
-				styleDone.Render("✓"), styleDone.Render(name))
-		default:
+				styleActive.Render("▸"), styleActive.Render(name))
+		} else {
 			line = fmt.Sprintf("%s %s",
 				styleIdle.Render("○"), styleIdle.Render(name))
 		}
@@ -300,13 +289,14 @@ func (m model) viewStatus() string {
 	// Fill available rows, most important content first.
 	avail := m.d.panelInnerH - 1
 
-	// Orchestrator online indicator — always shown if possible.
-	if avail > 0 {
-		sb.WriteString(styleActive.Render(
-			trunc("● Online", m.d.rightW),
-		) + "\n")
-		avail--
+	// Count active agents.
+	active := 0
+	for _, a := range m.agents {
+		if a.status == statusActive {
+			active++
+		}
 	}
+
 	if avail > 0 {
 		sb.WriteString(styleLabel.Render(
 			trunc("Phase", m.d.rightW),
@@ -319,12 +309,15 @@ func (m model) viewStatus() string {
 		) + "\n")
 		avail--
 	}
-	if avail > 1 {
+	if avail > 0 {
 		sb.WriteString(styleLabel.Render(
-			trunc("Step", m.d.rightW),
+			trunc("Active", m.d.rightW),
 		) + "\n")
+		avail--
+	}
+	if avail > 0 {
 		sb.WriteString(styleValue.Render(
-			trunc(fmt.Sprintf("%d / %d", m.step, m.totalSteps), m.d.rightW),
+			trunc(fmt.Sprintf("%d / %d", active, len(m.agents)), m.d.rightW),
 		) + "\n")
 	}
 

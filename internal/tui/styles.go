@@ -58,6 +58,10 @@ var (
 	styleValue  = lipgloss.NewStyle().Bold(true).Foreground(clrText)
 	styleFooter = lipgloss.NewStyle().Foreground(clrMuted)
 
+	styleError = lipgloss.NewStyle().Foreground(
+		ld(lipgloss.Color("1"), lipgloss.Color("9")),
+	)
+
 	styleInputBar = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(clrBorder)

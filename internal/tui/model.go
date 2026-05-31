@@ -400,9 +400,45 @@ func (m model) finishStreaming(err error) tea.Model {
 	return m
 }
 
-// syncOutput rebuilds the viewport content from logs.
+// syncOutput rebuilds the viewport content from logs,
+// wrapping each line to the viewport content width.
 func (m *model) syncOutput() {
-	m.output.SetContent(strings.Join(m.logs, "\n"))
+	w := max(20, m.d.vpContentW)
+	var wrapped []string
+	for _, line := range m.logs {
+		wrapped = append(wrapped, wrapLine(line, w)...)
+	}
+	m.output.SetContent(strings.Join(wrapped, "\n"))
+}
+
+// wrapLine breaks a string into lines of at most n visible
+// characters, splitting at word boundaries when possible.
+func wrapLine(s string, n int) []string {
+	if lipgloss.Width(s) <= n {
+		return []string{s}
+	}
+
+	var lines []string
+	var cur strings.Builder
+	for _, word := range strings.Split(s, " ") {
+		if cur.Len() == 0 {
+			cur.WriteString(word)
+			continue
+		}
+		test := cur.String() + " " + word
+		if lipgloss.Width(test) > n {
+			lines = append(lines, cur.String())
+			cur.Reset()
+			cur.WriteString(word)
+		} else {
+			cur.WriteString(" ")
+			cur.WriteString(word)
+		}
+	}
+	if cur.Len() > 0 {
+		lines = append(lines, cur.String())
+	}
+	return lines
 }
 
 func (m model) View() tea.View {

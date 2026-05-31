@@ -105,24 +105,6 @@ orchestrator runs continuously — classifying requests, deciding paths,
 mediating between user and agents. Agents stream output directly to the user
 (via the TUI) and can go back-and-forth through the orchestrator (HITL).
 
-* Package Responsibilities
-
-| Package | Owns | Depends on |
-|---------|------|------------|
-| =cmd= | CLI flags, startup, wiring | =app= |
-| =app= | Service container, lifecycle | all packages |
-| =agent= | Agent runtime, coordinator, tools, prompts | =config=, =session=, =message=, =state= |
-| =config= | Config loading and resolution | none (leaf) |
-| =session= | Session CRUD | =state= |
-| =message= | Message types and storage | =state= |
-| =event= | Event types and identifiers | none (leaf) |
-| =pubsub= | Event broker | =event= |
-| =permission= | Permission requests and approvals | none (leaf) |
-| =state= | Persistent state store | none (leaf) |
-| =ui= | Bubbletea TUI | =pubsub= |
-| =lsp= | LSP client | none (leaf) |
-| =mcp= | MCP client | none (leaf) |
-
 * Naming Rules
 
 ** Within Go packages

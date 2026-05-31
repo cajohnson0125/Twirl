@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -22,29 +23,29 @@ const (
 )
 
 // dims holds all computed layout dimensions derived from terminal size.
-// All three panels always render — widths shrink smoothly as the
-// terminal narrows. No panel dropping, no size thresholds.
+// All three panels always render — both width and height shrink smoothly
+// and proportionally as the terminal shrinks.
 type dims struct {
-	leftW       int // content width of agents panel (always >= 1)
-	rightW      int // content width of status panel (always >= 1)
-	centerW     int // content width of output panel (always >= 1)
-	panelInnerH int // content height of all panels
-	vpH         int // viewport height inside the center panel
+	leftW       int  // content width of agents panel
+	rightW      int  // content width of status panel
+	centerW     int  // content width of output panel
+	panelInnerH int  // content height of panels
+	vpH         int  // viewport height inside center panel
+	showFooter  bool // false when height is tight
+	inputBarH   int  // height of the input bar (1 content + 2 border)
 }
 
-// computeDims derives panel dimensions from terminal width/height.
+// computeDims derives all panel dimensions from terminal width/height.
 //
-// All three panels always render. Side panel widths scale proportionally
-// with terminal width. Center panel takes all remaining space.
-// No thresholds, no panel dropping — continuous smooth scaling.
+// Width:  side panels scale at 18% ratio, center takes the rest.
+// Height: footer hides below 6 rows. Input bar is a bordered panel.
+//         Title takes 1 row inside each panel — no blank lines.
+//         Everything scales continuously.
 func computeDims(w, h int) dims {
 	leftW := clamp(int(float64(w)*leftRatio), 1, maxPanelW)
 	rightW := clamp(int(float64(w)*rightRatio), 1, maxPanelW)
 
-	// 6 chars consumed by borders (2 per panel).
 	centerW := w - leftW - rightW - 6
-
-	// If center got squeezed, steal from side panels proportionally.
 	if centerW < 1 {
 		deficit := 1 - centerW
 		leftW = max(1, leftW-deficit/2)
@@ -52,10 +53,39 @@ func computeDims(w, h int) dims {
 		centerW = 1
 	}
 
-	panelInnerH := max(1, h-4)
-	vpH := max(1, panelInnerH-2)
+	// Vertical layout (from top to bottom):
+	//   panel row  = panelInnerH + 2 (borders)
+	//   input bar  = 1 + 2 (content + borders), or 1 (no border at tiny heights)
+	//   footer     = 1 (optional)
+	//
+	//   bordered input + footer: panelInnerH + 2 + 3 + 1 = panelInnerH + 6
+	//   bordered input only:     panelInnerH + 2 + 3     = panelInnerH + 5
+	//   plain input + footer:    panelInnerH + 2 + 1 + 1 = panelInnerH + 4
+	//   plain input only:        panelInnerH + 2 + 1     = panelInnerH + 3
 
-	return dims{leftW, rightW, centerW, panelInnerH, vpH}
+	borderedInput := h > 5
+	showFooter := h > 7
+
+	var panelInnerH int
+	switch {
+	case showFooter && borderedInput:
+		panelInnerH = max(1, h-6)
+	case borderedInput:
+		panelInnerH = max(1, h-5)
+	case showFooter:
+		panelInnerH = max(1, h-4)
+	default:
+		panelInnerH = max(1, h-3)
+	}
+
+	inputBarH := 3 // bordered
+	if !borderedInput {
+		inputBarH = 1 // plain
+	}
+
+	vpH := max(1, panelInnerH-1)
+
+	return dims{leftW, rightW, centerW, panelInnerH, vpH, showFooter, inputBarH}
 }
 
 func clamp(v, lo, hi int) int {
@@ -110,6 +140,7 @@ func newModel() model {
 	ti.Placeholder = "Type a message..."
 	ti.Focus()
 	ti.CharLimit = 256
+	ti.Cursor.SetMode(cursor.CursorHide) // use terminal's native cursor
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -119,15 +150,18 @@ func newModel() model {
 		input:      ti,
 		spin:       sp,
 		step:       0,
-		totalSteps: 7,
+		totalSteps: 10,
 		phase:      "Initializing",
 		agents: []agent{
-			{name: "Orchestrator", status: statusActive},
-			{name: "Brainstormer", status: statusIdle},
-			{name: "Researcher", status: statusIdle},
-			{name: "Planner", status: statusIdle},
-			{name: "Coder", status: statusIdle},
-			{name: "Reviewer", status: statusIdle},
+			{name: "Brainstorm", status: statusActive},
+			{name: "Research", status: statusIdle},
+			{name: "Report", status: statusIdle},
+			{name: "Plan", status: statusIdle},
+			{name: "Plan Review", status: statusIdle},
+			{name: "Execution", status: statusIdle},
+			{name: "Code Review", status: statusIdle},
+			{name: "Triage", status: statusIdle},
+			{name: "Assessment", status: statusIdle},
 			{name: "Scribe", status: statusIdle},
 		},
 		logs: []string{
@@ -140,7 +174,7 @@ func newModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.spin.Tick, textinput.Blink)
+	return tea.Batch(m.spin.Tick, textinput.Blink, tea.ShowCursor)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -164,7 +198,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.d = computeDims(m.width, m.height)
-		m.input.Width = max(1, m.width-4)
+		m.input.Width = max(1, m.d.centerW-4)
 
 		if !m.ready {
 			m.output = viewport.New(m.d.centerW, m.d.vpH)
@@ -202,28 +236,44 @@ func (m model) View() string {
 		m.viewStatus(),
 	)
 
-	return panels + "\n" + m.viewInput() + "\n" + m.viewFooter()
+	out := panels + "\n" + m.viewInputBar()
+	if m.d.showFooter {
+		out += "\n" + m.viewFooter()
+	}
+	return out
 }
+
+// noWrap forces a single line — no word wrapping.
+var noWrap = lipgloss.NewStyle().Inline(true)
 
 func (m model) viewAgents() string {
 	var sb strings.Builder
-	sb.WriteString(stylePanelTitle.Render(trunc("AGENTS", m.d.leftW)) + "\n\n")
+	sb.WriteString(stylePanelTitle.Render(
+		trunc("DISPATCH", m.d.leftW),
+	) + "\n")
 
-	// Indicator char + space = ~2 cols. Name gets the rest.
+	// Title takes 1 row. Only render agents that fit.
 	nameW := max(1, m.d.leftW-2)
+	maxVisible := max(0, m.d.panelInnerH-1)
 
-	for _, a := range m.agents {
+	for i, a := range m.agents {
+		if i >= maxVisible {
+			break
+		}
 		name := trunc(a.name, nameW)
 		var line string
 		switch a.status {
 		case statusActive:
-			line = fmt.Sprintf("%s %s", m.spin.View(), styleActive.Render(name))
+			line = fmt.Sprintf("%s %s",
+				m.spin.View(), styleActive.Render(name))
 		case statusDone:
-			line = fmt.Sprintf("%s %s", styleDone.Render("✓"), styleDone.Render(name))
+			line = fmt.Sprintf("%s %s",
+				styleDone.Render("✓"), styleDone.Render(name))
 		default:
-			line = fmt.Sprintf("%s %s", styleIdle.Render("○"), styleIdle.Render(name))
+			line = fmt.Sprintf("%s %s",
+				styleIdle.Render("○"), styleIdle.Render(name))
 		}
-		sb.WriteString(line + "\n")
+		sb.WriteString(noWrap.Render(line) + "\n")
 	}
 
 	return stylePanelBorder.
@@ -233,7 +283,7 @@ func (m model) viewAgents() string {
 }
 
 func (m model) viewOutput() string {
-	content := stylePanelTitle.Render("OUTPUT") + "\n\n" + m.output.View()
+	content := stylePanelTitle.Render("OUTPUT") + "\n" + m.output.View()
 
 	return stylePanelBorder.
 		Width(m.d.centerW).
@@ -243,13 +293,32 @@ func (m model) viewOutput() string {
 
 func (m model) viewStatus() string {
 	var sb strings.Builder
-	sb.WriteString(stylePanelTitle.Render(trunc("STATUS", m.d.rightW)) + "\n\n")
-	sb.WriteString(styleLabel.Render(trunc("Phase", m.d.rightW)) + "\n")
-	sb.WriteString(styleValue.Render(trunc(m.phase, m.d.rightW)) + "\n\n")
-	sb.WriteString(styleLabel.Render(trunc("Step", m.d.rightW)) + "\n")
-	sb.WriteString(styleValue.Render(
-		trunc(fmt.Sprintf("%d / %d", m.step, m.totalSteps), m.d.rightW),
+	sb.WriteString(stylePanelTitle.Render(
+		trunc("STATUS", m.d.rightW),
 	) + "\n")
+
+	// Fill available rows, most important content first.
+	avail := m.d.panelInnerH - 1
+	if avail > 0 {
+		sb.WriteString(styleLabel.Render(
+			trunc("Phase", m.d.rightW),
+		) + "\n")
+		avail--
+	}
+	if avail > 0 {
+		sb.WriteString(styleValue.Render(
+			trunc(m.phase, m.d.rightW),
+		) + "\n")
+		avail--
+	}
+	if avail > 1 {
+		sb.WriteString(styleLabel.Render(
+			trunc("Step", m.d.rightW),
+		) + "\n")
+		sb.WriteString(styleValue.Render(
+			trunc(fmt.Sprintf("%d / %d", m.step, m.totalSteps), m.d.rightW),
+		) + "\n")
+	}
 
 	return stylePanelBorder.
 		Width(m.d.rightW).
@@ -257,8 +326,16 @@ func (m model) viewStatus() string {
 		Render(sb.String())
 }
 
-func (m model) viewInput() string {
-	return fmt.Sprintf("%s %s", stylePrompt.Render(">"), m.input.View())
+// viewInputBar renders the input area — bordered panel at normal heights,
+// plain inline at very small heights.
+func (m model) viewInputBar() string {
+	inputContent := stylePrompt.Render(">") + " " + m.input.View()
+	if m.d.inputBarH <= 1 {
+		return inputContent
+	}
+	return styleInputBar.
+		Width(m.width - 2).
+		Render(inputContent)
 }
 
 func (m model) viewFooter() string {

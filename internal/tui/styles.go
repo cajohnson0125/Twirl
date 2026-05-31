@@ -54,4 +54,8 @@ var (
 	styleValue    = lipgloss.NewStyle().Bold(true).Foreground(clrText)
 	styleFooter   = lipgloss.NewStyle().Foreground(clrMuted)
 	stylePrompt   = lipgloss.NewStyle().Bold(true).Foreground(clrActive)
+
+	styleInputBar = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(clrBorder)
 )

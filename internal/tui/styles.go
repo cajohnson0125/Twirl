@@ -19,9 +19,12 @@ import (
 //	8 BrBlack  9 BrRed  10 BrGreen 11 BrYellow
 //	12 BrBlue 13 BrMagenta 14 BrCyan 15 BrWhite
 
-var ld = lipgloss.LightDark(
-	lipgloss.HasDarkBackground(os.Stdin, os.Stdout),
-)
+// isDarkTheme is determined once at init to avoid querying the
+// terminal during Bubbletea's event loop (which would corrupt
+// the input stream).
+var isDarkTheme = lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
+
+var ld = lipgloss.LightDark(isDarkTheme)
 
 var (
 	// clrAccent — vibrant highlight for prompts and accents.

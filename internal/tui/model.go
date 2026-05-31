@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"charm.land/bubbles/v2/spinner"
@@ -144,7 +143,7 @@ func parseCursorShape(s string) tea.CursorShape {
 // given content width and dark/light theme.
 func newRenderer(width int) (*glamour.TermRenderer, error) {
 	style := "dark"
-	if !lipgloss.HasDarkBackground(os.Stdin, os.Stdout) {
+	if !isDarkTheme {
 		style = "light"
 	}
 	return glamour.NewTermRenderer(
@@ -296,7 +295,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Re-create renderer at new width.
 		if r, err := newRenderer(
-			max(20, m.d.vpContentW-4),
+			max(20, m.d.vpContentW-2),
 		); err == nil {
 			m.mdRenderer = r
 		}
@@ -322,6 +321,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var vpCmd tea.Cmd
 	m.output, vpCmd = m.output.Update(msg)
 	cmds = append(cmds, vpCmd)
+
+	// Re-apply custom dims after viewport.Update may have
+	// overridden them with raw terminal size from
+	// WindowSizeMsg.
+	if m.ready {
+		m.output.SetWidth(m.d.vpContentW)
+		m.output.SetHeight(m.d.vpContentH)
+	}
 
 	var tiCmd tea.Cmd
 	m.input, tiCmd = m.input.Update(msg)
@@ -434,8 +441,8 @@ func (m model) finishStreaming(err error) tea.Model {
 	return m
 }
 
-// renderMarkdown renders text through the Glamour renderer.
-// Falls back to raw text if the renderer is unavailable.
+// renderMarkdown renders AI response text through the
+// Glamour markdown renderer.
 func (m model) renderMarkdown(text string) string {
 	if m.mdRenderer == nil {
 		return styleAI.Render("AI: ") + text
@@ -444,21 +451,29 @@ func (m model) renderMarkdown(text string) string {
 	if err != nil {
 		return styleAI.Render("AI: ") + text
 	}
-	return styleAI.Render("AI:") + "\n" + rendered
+	rendered = strings.TrimSpace(rendered)
+	return styleAI.Render("AI: ") + rendered
 }
 
 // syncOutput rebuilds the viewport content from logs,
 // including the in-flight streaming response if active.
+// Lines containing ANSI escape codes (Glamour output)
+// are passed through without re-wrapping.
 func (m *model) syncOutput() {
 	w := max(20, m.d.vpContentW)
-	var wrapped []string
+	var lines []string
 	for _, line := range m.logs {
-		wrapped = append(wrapped, wrapLine(line, w)...)
+		if strings.Contains(line, "\x1b[") {
+			// Glamour-rendered — skip our wrapper.
+			lines = append(lines, line)
+		} else {
+			lines = append(lines, wrapLine(line, w)...)
+		}
 	}
 
 	// During streaming, append the partial response.
 	if m.streaming && m.responseBuf.Len() > 0 {
-		wrapped = append(wrapped,
+		lines = append(lines,
 			wrapLine(
 				styleAI.Render("AI: ")+
 					m.responseBuf.String(),
@@ -467,7 +482,7 @@ func (m *model) syncOutput() {
 		)
 	}
 
-	m.output.SetContent(strings.Join(wrapped, "\n"))
+	m.output.SetContent(strings.Join(lines, "\n"))
 }
 
 // wrapLine breaks a string into lines of at most n visible
@@ -588,6 +603,7 @@ func (m model) viewInputBar() string {
 
 func (m model) viewFooter() string {
 	var parts []string
+	parts = append(parts, fmt.Sprintf("%dx%d", m.width, m.height))
 	parts = append(parts, "ctrl+c quit")
 	if m.width > 30 {
 		parts = append(parts, "enter send")

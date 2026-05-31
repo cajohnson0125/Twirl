@@ -202,6 +202,12 @@ func newModel(
 			)
 		} else {
 			m.llmClient = client
+			m.logs = append(m.logs,
+				styleActive.Render(
+					"LLM connected: "+llmCfg.Model+
+						" @ "+llmCfg.BaseURL,
+				),
+			)
 		}
 	} else {
 		m.logs = append(m.logs,

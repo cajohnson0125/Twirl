@@ -1,0 +1,27 @@
+- What is the problem?
+- Do existing solutions exist?
+- Brainstorm ways to solve it
+- Research brainstormed solutions
+- Define and document chosen solutions and why?
+- Define and document chosen technology and why?
+- Focused in-depth research on the chosen technology
+- Design the solution
+- Break the chosen solution down into its main features
+- Map out if any features are dependent on each other
+- Create high-level project roadmap
+- Break the roadmap features down into the smallest logical tasks
+- Map out if any tasks are dependent on each other
+- Create feature-specific, dependency-organized task lists
+- Assign tasks to the appropriate specialist
+- Execute each task
+- Commit changes
+- Review each task's output
+- Categorize any issues found by severity
+- Decide what to fix and what to defer
+- Apply fixes
+- Commit changes
+- Re-review fixed tasks
+- Test the implementation
+- Repeat the review cycle if issues are found
+- Final commit
+- Document what was done and why

@@ -1,6 +1,6 @@
-#+TITLE: Twirl - Requirements
+# Twirl - Requirements
 
-* Vision Statement
+## Vision Statement
 
 Twirl brings structure to AI-assisted software development. It orchestrates
 specialized AI agents through a non-linear workflow with human-in-the-loop
@@ -14,9 +14,9 @@ not a fixed pipeline. Any agent can talk to the user when it needs to, the user
 can jump in at any point to redirect, and the whole thing runs in a TUI with
 streaming output. State persists so nothing is lost between sessions.
 
-* Scope
+## Scope
 
-** In Scope (MVP)
+### In Scope (MVP)
 
 - Workflow engine with conditional routing, loop-backs, and parallel execution
 - Specialized agent roles with defined responsibilities (Orchestrator,
@@ -28,16 +28,16 @@ streaming output. State persists so nothing is lost between sessions.
 - Persistent project state
 - Automated documentation generation at workflow checkpoints
 
-** Out of Scope (Future)
+### Out of Scope (Future)
 
 - Web-based interface
 - Multi-project management
 - Custom agent plugin marketplace
 - Cloud-hosted orchestration
 
-* Functional Requirements
+## Functional Requirements
 
-** Workflow Engine
+### Workflow Engine
 
 - The system shall support non-linear workflows with conditional routing and
   loop-backs
@@ -47,7 +47,7 @@ streaming output. State persists so nothing is lost between sessions.
 - The system shall support resuming execution after an interrupt with updated
   state
 
-** Agent System
+### Agent System
 
 - The system shall support specialized agent roles with defined
   responsibilities
@@ -57,7 +57,7 @@ streaming output. State persists so nothing is lost between sessions.
 - The system shall maintain an event log of all agent dispatches and results
 - The system shall return all agent results to the Orchestrator for routing
 
-** Human Interaction
+### Human Interaction
 
 - The system shall support human-in-the-loop interrupts at any point in the
   workflow
@@ -67,7 +67,7 @@ streaming output. State persists so nothing is lost between sessions.
   output
 - All user interaction shall flow through the Orchestrator
 
-** Terminal Interface
+### Terminal Interface
 
 - The system shall render real-time streaming output as agents work
 - The system shall display workflow progress showing current step and active
@@ -76,7 +76,7 @@ streaming output. State persists so nothing is lost between sessions.
 - The system shall allow the user to interrupt or redirect the workflow at any
   point
 
-** LLM Integration
+### LLM Integration
 
 - The system shall support multiple LLM providers
 - The system shall stream LLM responses in real time
@@ -86,20 +86,20 @@ streaming output. State persists so nothing is lost between sessions.
 - The system shall support mcp protocol for LLM interactions
 - The system shall support lsp protocol for LLM interactions
 
-** State Management
+### State Management
 
 - The system shall persist workflow state across sessions
 - The system shall maintain context that agents can read and update
 - The system shall track project progress
 
-** Documentation
+### Documentation
 
 - The system shall auto-generate documentation at workflow checkpoints
   (decision logs, findings, todos, summaries)
 - All documentation shall be stored in human-readable, version-controllable
   formats
 
-* Non-Functional Requirements
+## Non-Functional Requirements
 
 - The system shall respond to user input within 100ms regardless of background
   activity

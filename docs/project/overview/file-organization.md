@@ -1,17 +1,17 @@
-#+TITLE: Twirl - File Organization
+# Twirl - File Organization
 
-* Conventions
+## Conventions
 
-- *Go package dirs:* lowercase, no hyphens (Go convention — hyphens break imports)
+- *Go package dirs:* lowercase, no hyphens (Go convention -- hyphens break imports)
 - *Non-package dirs:* kebab-case (docs/, config files, etc.)
-- *Go source files:* snake_case (Go convention, e.g. =route_helpers.go=)
+- *Go source files:* snake_case (Go convention, e.g. `route_helpers.go`)
 - *Non-source files:* kebab-case (README, config, docs, prompt templates)
-- *One package per directory* — no multi-package dirs
-- *Test files:* co-located (=foo.go= + =foo_test.go= in same package)
+- *One package per directory* -- no multi-package dirs
+- *Test files:* co-located (`foo.go` + `foo_test.go` in same package)
 
-* Project Structure
+## Project Structure
 
-#+BEGIN_SRC
+```
 twirl/
 ├── main.go                                # entry point → cmd.Execute()
 │
@@ -33,7 +33,6 @@ twirl/
 │   │   │   ├── planner.md
 │   │   │   ├── coder.md
 │   │   │   ├── reviewer.md
-│   │   │   ├── scribe.md
 │   │   │   └── presenter.md
 │   │   └── tools/                         # tool implementations (Go)
 │   │       ├── bash.go
@@ -88,14 +87,14 @@ twirl/
 ├── .golangci.yml
 ├── Makefile
 └── README.md
-#+END_SRC
+```
 
-* What's Go Code vs Data
+## What's Go Code vs Data
 
 | Type | Examples | Why |
 |------|----------|-----|
 | *Go code* | runtime, coordinator, tools, TUI, pubsub | Runs agents, not agents themselves |
-| *Data* | prompt templates (=.md=), config (=.yml=) | Agent behavior, tool bindings |
+| *Data* | prompt templates (`.md`), config (`.yml`) | Agent behavior, tool bindings |
 
 Agents are prompt templates. The Go code loads them, binds tools, calls the LLM,
 and collects results. Adding a new agent = writing a markdown file, not Go code.
@@ -105,21 +104,24 @@ orchestrator runs continuously — classifying requests, deciding paths,
 mediating between user and agents. Agents stream output directly to the user
 (via the TUI) and can go back-and-forth through the orchestrator (HITL).
 
-* Naming Rules
+## Naming Rules
 
-** Within Go packages
-- Files: =snake_case.go= (e.g. =route_helpers.go=)
-- Tests: =foo_test.go= co-located, same package (=package foo=)
+### Within Go packages
 
-** Non-Go files
-- Directories: =kebab-case/= (e.g. =docs/project-steps/=)
-- Config files: =kebab-case= or dotfiles (e.g. =.golangci.yml=)
-- Documentation: =kebab-case.org= or =kebab-case.md=
-- Prompt templates: =kebab-case.md= (e.g. =brainstormer.md=)
+- Files: `snake_case.go` (e.g. `route_helpers.go`)
+- Tests: `foo_test.go` co-located, same package (`package foo`)
 
-** What NOT to do
-- No =pkg/= directory — Twirl is an application, not a library
-- No =src/= directory — Go uses =cmd/= and =internal/=
-- No =util/= or =helpers/= catch-all packages
+### Non-Go files
+
+- Directories: `kebab-case/` (e.g. `docs/project-steps/`)
+- Config files: `kebab-case` or dotfiles (e.g. `.golangci.yml`)
+- Documentation: `kebab-case.md` (e.g. `design.md`)
+- Prompt templates: `kebab-case.md` (e.g. `brainstormer.md`)
+
+### What NOT to do
+
+- No `pkg/` directory — Twirl is an application, not a library
+- No `src/` directory — Go uses `cmd/` and `internal/`
+- No `util/` or `helpers/` catch-all packages
 - No per-agent Go files — agents are markdown templates
-- No interface files (=interfaces.go=) — define at consumer, not provider
+- No interface files (`interfaces.go`) — define at consumer, not provider

@@ -28,18 +28,18 @@ text).
 | 1.4 | Implement `Store` — binary gob read/write to `.twirl/state.gob` | `internal/state/` | `Save(state)` after every node execution. Atomic write via temp+rename. `Load()` for resume. No text formats. | ✅ |
 | 1.5 | Write tests for state serialization round-trip | `internal/state/` | Serialize, deserialize, assert equal. Test with realistic state including `AuditLog`. | ✅ |
 
-## Phase 2: Agent Interface (`internal/agent/`)
+## Phase 2: Agent Interface (`internal/agent/`) ✅
 
 Standardize how specialists are dispatched. The engine shouldn't know
 about specific roles — it calls through an interface.
 
-| # | Task | Package | Notes |
-|---|------|---------|-------|
-| 2.1 | Define `Agent` interface with `Role() AgentRole` and `Execute(ctx, task, state) (*Result, error)` | `internal/agent/` | All 10 specialists implement this interface. |
-| 2.2 | Define `AgentRole` enum: Brainstorm, Research, Report, Plan, PlanReview, Execution, CodeReview, Triage, Assessment, Scribe | `internal/agent/` | String constants. |
-| 2.3 | Define `Task` type — what the orchestration layer sends to an agent | `internal/agent/` | Includes the prompt/instruction, relevant project context, and any template path. |
-| 2.4 | Implement `Registry` — map of `AgentRole` to `Agent` constructor | `internal/agent/` | The engine looks up agents by role. Lets you register agents at startup. |
-| 2.5 | Implement a **stub agent** for testing the engine end-to-end | `internal/agent/` | Returns canned `Result` without calling an LLM. Critical for testing routing logic before real agents exist. |
+| # | Task | Package | Notes | Done |
+|---|------|---------|-------|------|
+| 2.1 | Define `Agent` interface with `Role() Role` and `Execute(ctx, task) (*Result, error)` | `internal/agent/` | All 10 specialists implement this interface. | ✅ |
+| 2.2 | Define `Role` enum: Brainstorm, Research, Report, Plan, PlanReview, Execution, CodeReview, Triage, Assessment, Scribe | `internal/agent/` | String constants. | ✅ |
+| 2.3 | Define `Task` type — what the orchestration layer sends to an agent | `internal/agent/` | Instruction, Context map, TemplatePath. | ✅ |
+| 2.4 | Implement `Registry` — map of `Role` to `Agent` constructor | `internal/agent/` | Register at startup, get by role. Panics on duplicate. | ✅ |
+| 2.5 | Implement a **stub agent** for testing the engine end-to-end | `internal/agent/` | `StubAgent` returns canned `Result` or error. | ✅ |
 
 ## Phase 3: Event Bus (`internal/pubsub/`)
 

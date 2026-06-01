@@ -41,16 +41,16 @@ about specific roles — it calls through an interface.
 | 2.4 | Implement `Registry` — map of `Role` to `Agent` constructor | `internal/agent/` | Register at startup, get by role. Panics on duplicate. | ✅ |
 | 2.5 | Implement a **stub agent** for testing the engine end-to-end | `internal/agent/` | `StubAgent` returns canned `Result` or error. | ✅ |
 
-## Phase 3: Event Bus (`internal/pubsub/`)
+## Phase 3: Event Bus (`internal/pubsub/`) ✅
 
 Channel-based communication between the engine and TUI. Decouples the
 two layers.
 
-| # | Task | Package | Notes |
-|---|------|---------|-------|
-| 3.1 | Define event types: `StreamEvent` (token chunks), `AgentStartedEvent`, `AgentDoneEvent`, `GateEvent`, `ErrorEvent` | `internal/pubsub/` | These cross the orchestration to presentation boundary. |
-| 3.2 | Implement `EventBus` — typed publish/subscribe over Go channels | `internal/pubsub/` | `Subscribe(eventType) <-chan Event`, `Publish(Event)`. Buffered channels to avoid blocking the engine on slow TUI rendering. |
-| 3.3 | Write tests: publish N events, subscriber receives all in order | `internal/pubsub/` | |
+| # | Task | Package | Notes | Done |
+|---|------|---------|-------|------|
+| 3.1 | Define event types: `StreamEvent` (token chunks), `AgentStartedEvent`, `AgentDoneEvent`, `GateEvent`, `ErrorEvent` | `internal/pubsub/` | Single `Event` struct with `EventType` enum. Fields populated based on type. | ✅ |
+| 3.2 | Implement `Bus` — typed publish/subscribe over buffered Go channels | `internal/pubsub/` | `Subscribe(type) <-chan Event`, `Publish(Event)` (non-blocking drop on full), `Close()`. Thread-safe via `sync.RWMutex`. | ✅ |
+| 3.3 | Write tests: publish N events, subscriber receives all in order | `internal/pubsub/` | 9 tests including order, multi-subscriber, type isolation, drop-on-full, close, concurrent stress with `-race`. | ✅ |
 
 ## Phase 4: Coordinator Engine (`internal/orchestrator/`)
 

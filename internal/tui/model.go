@@ -121,6 +121,15 @@ type model struct {
 
 	// Markdown renderer for AI responses.
 	mdRenderer *glamour.TermRenderer
+
+	// Raw AI texts for re-rendering on resize.
+	aiRaw []aiEntry
+}
+
+// aiEntry maps a log index to its raw markdown text.
+type aiEntry struct {
+	logIndex int
+	rawText  string
 }
 
 type cursorStyle struct {
@@ -294,10 +303,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input.SetWidth(max(1, m.d.vpContentW-4))
 
 		// Re-create renderer at new width.
+		// Extra padding to account for Glamour's built-in
+		// left margin and ANSI escape sequence overhead.
 		if r, err := newRenderer(
-			max(20, m.d.vpContentW-2),
+			max(20, m.d.vpContentW-6),
 		); err == nil {
 			m.mdRenderer = r
+			m.rerenderAI()
 		}
 
 		if !m.ready {
@@ -422,9 +434,13 @@ func (m model) finishStreaming(err error) tea.Model {
 			styleError.Render(errMsg),
 		)
 	} else if m.responseBuf.Len() > 0 {
-		m.logs = append(m.logs, m.renderMarkdown(
-			m.responseBuf.String(),
-		))
+		raw := m.responseBuf.String()
+		idx := len(m.logs)
+		m.logs = append(m.logs, m.renderMarkdown(raw))
+		m.aiRaw = append(m.aiRaw, aiEntry{
+			logIndex: idx,
+			rawText:  raw,
+		})
 	}
 
 	m.responseBuf.Reset()
@@ -453,6 +469,26 @@ func (m model) renderMarkdown(text string) string {
 	}
 	rendered = strings.TrimSpace(rendered)
 	return styleAI.Render("AI: ") + rendered
+}
+
+// rerenderAI re-renders all stored AI responses through the
+// current Glamour renderer. Called on resize so text wraps
+// to the new width.
+func (m *model) rerenderAI() {
+	if m.mdRenderer == nil {
+		return
+	}
+	for i, entry := range m.aiRaw {
+		if entry.logIndex < len(m.logs) {
+			m.logs[entry.logIndex] = m.renderMarkdown(
+				entry.rawText,
+			)
+		}
+		// Shift index if needed — entries after a resize
+		// keep their original logIndex since we never
+		// delete from the middle of logs.
+		_ = i
+	}
 }
 
 // syncOutput rebuilds the viewport content from logs,

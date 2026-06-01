@@ -1,0 +1,16 @@
+{
+	"name": "twirl",
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"lint:md": "rumdl check . --exclude \"node_modules/**,dist/**,src-tauri/**,.kilocode/**,.git/**,.vscode/**,CLAUDE.md,AGENTS.md\"",
+		"lint:md:fix": "rumdl fmt . --exclude \"node_modules/**,dist/**,src-tauri/**,.kilocode/**,.git/**,.vscode/**,.claude/**,CLAUDE.md,AGENTS.md\"",
+		"lint:go": "golangci-lint run",
+		"lint:go:fix": "golangci-lint run --fix",
+		"format": "gofmt -w ./... && goimports -w ./...",
+		"lint": "npm run lint:go && npm run lint:md"
+	},
+	"devDependencies": {
+		"rumdl": "^0.2.4"
+	}
+}

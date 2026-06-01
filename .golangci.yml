@@ -1,0 +1,40 @@
+run:
+  deadline: 5m
+  issues-exit-code: 1
+
+output:
+  format: colored-line-number
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+  govet:
+    check-shadowing: true
+  staticcheck:
+    go: "1.22"
+  goimports:
+    local-prefixes: github.com/cajohnson0125/Twirl
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new:
+    # Uncomment this only if you want every warning to fail CI.
+    # Right now only "error" severity stops the run; warnings
+    # are shown but do not block.
+    # - issues.severity.default: error
+    #   linters: [all]
+  fix: true

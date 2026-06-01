@@ -639,7 +639,6 @@ func (m model) viewInputBar() string {
 
 func (m model) viewFooter() string {
 	var parts []string
-	parts = append(parts, fmt.Sprintf("%dx%d", m.width, m.height))
 	parts = append(parts, "ctrl+c quit")
 	if m.width > 30 {
 		parts = append(parts, "enter send")

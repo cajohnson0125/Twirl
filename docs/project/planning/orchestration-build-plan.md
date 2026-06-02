@@ -80,18 +80,18 @@ All in pure Go — no config files.
 | 5.3 | Define **parallel fork** for multiple Execution agents: Plan outputs N tasks, fork into N Execution nodes, join, then CodeReview | `internal/workflow/` | scribe_plan -> execution_1 (unconditional) + execution_2 + execution_3 (conditional on `execution_count` context key). All three converge at code_review. | ✅ |
 | 5.4 | Write graph validation: no orphan nodes, all paths eventually reach a terminal node, no cycles without a conditional exit | `internal/workflow/` | BFS reachability from start, reverse BFS terminal reachability, edge target checks. 8 validation tests. `Validate(DefaultGraph())` passes. | ✅ |
 
-## Phase 6: TUI Integration
+## Phase 6: TUI Integration ✅
 
 Wire the existing TUI to the engine instead of the current direct LLM
 streaming.
 
-| # | Task | Package | Notes |
-|---|------|---------|-------|
-| 6.1 | Replace the TUI's direct `llm.Client` usage with `EventBus` subscription | `internal/tui/` | Currently `model.go` calls `llm.Client.Stream()` directly. Instead, subscribe to `StreamEvent` from the bus. |
-| 6.2 | Add HITL gate rendering to the TUI: when a `GateEvent` arrives, render the prompt and options, collect user input, send `HITLResponse` back through the channel | `internal/tui/` | Likely use `huh` for interactive forms (per design doc). |
-| 6.3 | Wire the info bar to engine events: show active agent names, phase, and progress from `AgentStartedEvent`/`AgentDoneEvent` | `internal/tui/` | Replace the current hardcoded agent list. |
-| 6.4 | Add interrupt handling: user input during non-gate moments sends a redirect/interrupt signal to the engine | `internal/tui/` | User can type to redirect the workflow at any point. |
-| 6.5 | Wire `main.go` to initialize `Engine`, `EventBus`, and `TUI` together, connect channels, and start | `cmd/twirl/` | Currently `main.go` passes config directly to TUI. Needs to create engine first, pass bus to TUI. |
+| # | Task | Package | Notes | Done |
+|---|------|---------|-------|------|
+| 6.1 | Replace the TUI's direct `llm.Client` usage with `EventBus` subscription | `internal/tui/` | Model subscribes to all 5 event types via `waitForBusEvent()`. `handleBusEvent()` dispatches to per-type handlers. Direct `llm.Client.Stream()` removed from model. | ✅ |
+| 6.2 | Add HITL gate rendering to the TUI: when a `GateEvent` arrives, render the prompt and options, collect user input, send `HITLResponse` back through the channel | `internal/tui/` | `gateState` tracks active gate. Viewport shows numbered options. User types number + enter. `handleGateInput()` sends `HITLResponse` via `hitlOut` channel. | ✅ |
+| 6.3 | Wire the info bar to engine events: show active agent names, phase, and progress from `AgentStartedEvent`/`AgentDoneEvent` | `internal/tui/` | `agents map[string]agentInfo` updated on `EventAgentStarted`/`EventAgentDone`. `viewInfoBar()` reads active count dynamically. `roleDisplayName()` maps role strings to display names. | ✅ |
+| 6.4 | Add interrupt handling: user input during non-gate moments sends a redirect/interrupt signal to the engine | `internal/tui/` | ctrl+c calls `engine.Cancel()` (cancels context) then quits. OS signals (SIGINT/SIGTERM) also forwarded to engine cancel. Gate mode suppresses ctrl+c. | ✅ |
+| 6.5 | Wire `main.go` to initialize `Engine`, `EventBus`, and `TUI` together, connect channels, and start | `cmd/twirl/` | `main.go` creates `DefaultGraph()`, `Registry` (stub agents), `Bus`, `Store`, `Engine`, starts engine goroutine, passes `Opts` to `tui.Run()`. OS signal forwarding. | ✅ |
 
 ## What Already Exists (don't rebuild)
 

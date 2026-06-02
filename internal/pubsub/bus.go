@@ -63,6 +63,9 @@ func (b *Bus) Publish(e Event) int {
 	return sent
 }
 
+// BufferCap returns the per-subscriber channel buffer size.
+func (b *Bus) BufferCap() int { return b.bufSz }
+
 // Close signals all subscribers that no more events will
 // arrive by closing their channels.
 func (b *Bus) Close() {

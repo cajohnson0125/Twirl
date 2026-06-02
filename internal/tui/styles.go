@@ -64,11 +64,12 @@ var (
 				Bold(true).
 				Foreground(clrTitle)
 
-	styleActive = lipgloss.NewStyle().Foreground(clrActive)
-	styleIdle   = lipgloss.NewStyle().Foreground(clrMuted)
-	styleLabel  = lipgloss.NewStyle().Foreground(clrMuted)
-	styleValue  = lipgloss.NewStyle().Bold(true).Foreground(clrText)
-	styleFooter = lipgloss.NewStyle().Foreground(clrMuted)
+	styleActive  = lipgloss.NewStyle().Foreground(clrActive)
+	styleAccent  = lipgloss.NewStyle().Bold(true).Foreground(clrAccent)
+	styleMuted   = lipgloss.NewStyle().Foreground(clrMuted)
+	styleLabel   = lipgloss.NewStyle().Foreground(clrMuted)
+	styleValue   = lipgloss.NewStyle().Bold(true).Foreground(clrText)
+	styleFooter  = lipgloss.NewStyle().Foreground(clrMuted)
 
 	styleError = lipgloss.NewStyle().Foreground(
 		ld(lipgloss.Color("1"), lipgloss.Color("9")),

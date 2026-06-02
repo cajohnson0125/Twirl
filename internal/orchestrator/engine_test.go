@@ -444,7 +444,20 @@ func TestResume(t *testing.T) {
 	// The engine will try to execute "b" next, but we cancel
 	// so the persisted state has ActiveNodes=["b"].
 	cancel1()
-	time.Sleep(10 * time.Millisecond) // let engine persist
+
+	// Poll until state is persisted with ActiveNodes=["b"].
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		loaded, err := store1.Load()
+		if err == nil && len(loaded.ActiveNodes) > 0 &&
+			loaded.ActiveNodes[0] == "b" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for state persist")
+		}
+		time.Sleep(time.Millisecond)
+	}
 
 	// Now resume from the saved state.
 	regs2 := agent.NewRegistry()

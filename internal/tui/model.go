@@ -433,10 +433,16 @@ func (m model) handleGateInput() (
 		choice = m.gate.options[idx-1]
 	}
 
-	m.hitlOut <- state.HITLResponse{
+	select {
+	case m.hitlOut <- state.HITLResponse{
 		ID:     m.gate.prompt,
 		Choice: choice,
 		Input:  val,
+	}:
+	default:
+		m.logs = append(m.logs,
+			styleError.Render(
+				"Gate response dropped (channel full)"))
 	}
 
 	m.logs = append(m.logs,
@@ -750,20 +756,28 @@ func (m model) View() tea.View {
 }
 
 func (m model) viewInfoBar() string {
-	active := ""
-	activeCount := 0
+	var activeNames []string
 	for _, name := range m.agentList {
-		info := m.agents[name]
-		if info.status == agentActive {
-			active = info.name
-			activeCount++
+		if m.agents[name].status == agentActive {
+			activeNames = append(activeNames, name)
 		}
 	}
 
-	activeStyle := styleActive.Bold(true).Render("▸ " + active)
-	if active == "" {
-		activeStyle = styleActive.Bold(true).Render("▸ Idle")
+	activeCount := len(activeNames)
+	var activeLabel string
+	switch {
+	case activeCount == 0:
+		activeLabel = "Idle"
+	case activeCount == 1:
+		activeLabel = activeNames[0]
+	case activeCount <= 3:
+		activeLabel = strings.Join(activeNames, ", ")
+	default:
+		activeLabel = fmt.Sprintf("%d agents", activeCount)
 	}
+
+	activeStyle := styleActive.Bold(true).Render(
+		"▸ " + activeLabel)
 
 	phase := styleLabel.Render("Phase:") + " " +
 		styleValue.Render(m.phase)
@@ -817,5 +831,8 @@ func Run(opts Opts) error {
 	}
 	p := tea.NewProgram(m)
 	_, err = p.Run()
+	if m.busDone != nil {
+		close(m.busDone)
+	}
 	return err
 }

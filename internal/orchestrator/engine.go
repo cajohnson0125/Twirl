@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"golang.org/x/sync/errgroup"
 
 	"github.com/cajohnson0125/Twirl/internal/agent"
 	"github.com/cajohnson0125/Twirl/internal/pubsub"
@@ -161,25 +160,37 @@ func (e *Engine) Run(ctx context.Context) error {
 }
 
 // executeNodes runs all active nodes. If there are multiple,
-// they execute concurrently via errgroup. Each node's Execute
-// function is called — which dispatches the agent via the
-// registry.
+// they execute concurrently. All nodes run to completion even
+// if one fails so that partial results are preserved.
 func (e *Engine) executeNodes(
 	ctx context.Context,
 	nodeIDs []string,
 ) (map[string]*state.Result, error) {
 	results := make(map[string]*state.Result)
 	var mu sync.Mutex
-
-	g, gCtx := errgroup.WithContext(ctx)
+	var wg sync.WaitGroup
+	var errs []error
 
 	for _, id := range nodeIDs {
-		id := id
-		g.Go(func() error {
+		wg.Add(1)
+		go func(id string) {
+			defer wg.Done()
+
+			if err := ctx.Err(); err != nil {
+				mu.Lock()
+				errs = append(errs, fmt.Errorf(
+					"node %q: %w", id, err))
+				mu.Unlock()
+				return
+			}
+
 			node, ok := e.graph.Nodes[workflow.NodeID(id)]
 			if !ok {
-				return fmt.Errorf(
-					"node %q not found in graph", id)
+				mu.Lock()
+				errs = append(errs, fmt.Errorf(
+					"node %q not found in graph", id))
+				mu.Unlock()
+				return
 			}
 
 			// Log dispatch.
@@ -198,15 +209,13 @@ func (e *Engine) executeNodes(
 			snapshot := e.snapshotState()
 			e.mu.Unlock()
 
-			// If the node has a custom Execute, use it.
-			// Otherwise, dispatch via the agent registry.
 			var res *state.Result
 			var err error
 			if node.Execute != nil {
-				res, err = node.Execute(gCtx, snapshot)
+				res, err = node.Execute(ctx, snapshot)
 			} else {
 				res, err = e.dispatchAgent(
-					gCtx, node.Role, snapshot)
+					ctx, id, node.Role, snapshot)
 			}
 
 			if err != nil {
@@ -215,7 +224,11 @@ func (e *Engine) executeNodes(
 					NodeID: id,
 					Err:    err.Error(),
 				})
-				return err
+				mu.Lock()
+				errs = append(errs, fmt.Errorf(
+					"node %q: %w", id, err))
+				mu.Unlock()
+				return
 			}
 
 			mu.Lock()
@@ -244,13 +257,13 @@ func (e *Engine) executeNodes(
 				NodeID: id,
 				Role:   node.Role,
 			})
-
-			return nil
-		})
+		}(id)
 	}
 
-	if err := g.Wait(); err != nil {
-		return results, err
+	wg.Wait()
+
+	if len(errs) > 0 {
+		return results, errs[0]
 	}
 	return results, nil
 }
@@ -259,6 +272,7 @@ func (e *Engine) executeNodes(
 // creates a Task from the current state, and executes it.
 func (e *Engine) dispatchAgent(
 	ctx context.Context,
+	nodeID string,
 	role string,
 	s *state.State,
 ) (*state.Result, error) {
@@ -268,7 +282,7 @@ func (e *Engine) dispatchAgent(
 	}
 	task := &agent.Task{
 		Instruction: fmt.Sprintf(
-			"Execute %s workflow step", role),
+			"Execute %s step (node: %s)", role, nodeID),
 		Context: s.Context,
 	}
 	return a.Execute(ctx, task)

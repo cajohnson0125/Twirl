@@ -12,7 +12,7 @@
 
 <!-- Measurable outcomes the project must achieve. -->
 
-- 
+-
 
 ## Scope
 
@@ -20,46 +20,46 @@
 
 <!-- What the project will deliver. -->
 
-- 
+-
 
 ### Out of Scope
 
 <!-- Explicitly excluded to prevent scope creep. -->
 
-- 
+-
 
 ## Functional Requirements
 
 <!-- What the system must do. One per item. -->
 
-- 
+-
 
 ## Non-Functional Requirements
 
 <!-- Quality attributes: performance, security, usability, reliability. -->
 
-- 
+-
 
 ## Constraints
 
 <!-- Technical, organizational, or regulatory limitations. -->
 
-- 
+-
 
 ## Dependencies
 
 <!-- External services, libraries, APIs the project relies on. -->
 
-- 
+-
 
 ## Assumptions
 
 <!-- Things treated as true but not verified. -->
 
-- 
+-
 
 ## Open Questions
 
 <!-- Unresolved items that need answers before work can proceed. -->
 
-- 
+-

@@ -1,5 +1,4 @@
 
-
 # Scoping Phase
 
 ```txt
@@ -89,7 +88,7 @@
   [to Execution Phase]
 ```
 
-# Execution Phase
+## Execution Phase
 
 ```txt
   +-- dispatch Specialist Coders (one per framework needed)

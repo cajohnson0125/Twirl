@@ -15,22 +15,22 @@
 
 <!-- Items that block release or cause correctness failures. -->
 
-- [ ] 
+- [ ]
 
 ## High
 
 <!-- Items that degrade core functionality or UX significantly. -->
 
-- [ ] 
+- [ ]
 
 ## Medium
 
 <!-- Items that affect quality, clarity, or non-critical behavior. -->
 
-- [ ] 
+- [ ]
 
 ## Low
 
 <!-- Minor polish, style, or nice-to-have improvements. -->
 
-- [ ] 
+- [ ]

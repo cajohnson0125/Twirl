@@ -13,3 +13,9 @@ twirl
 
 # Go
 vendor/
+
+# Node
+node_modules/
+
+# Twirl engine state
+.twirl/

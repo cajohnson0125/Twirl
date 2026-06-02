@@ -1,3 +1,5 @@
+# Project Steps
+
 - What is the problem?
 - Do existing solutions exist?
 - Brainstorm ways to solve it

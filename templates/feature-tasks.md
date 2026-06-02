@@ -12,13 +12,13 @@
 
 <!-- Features, libraries, or external resources this feature depends on. -->
 
-- [ ] 
+- [ ]
 
 ## Tasks
 
 ### [Phase]
 
-- [ ] 
+- [ ]
 
 ---
 

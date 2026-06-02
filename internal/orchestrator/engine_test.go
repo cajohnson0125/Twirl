@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/cajohnson0125/Twirl/internal/agent"
 	"github.com/cajohnson0125/Twirl/internal/pubsub"
@@ -276,20 +277,80 @@ func TestParallelExecution(t *testing.T) {
 // --- HITL gate ---
 
 func TestHITLGate(t *testing.T) {
-	// TODO: This test hangs due to a suspected interaction
-	// between gob encode and channel select in the test
-	// environment. The HITL mechanism is simple (select on a
-	// buffered channel) and is covered by manual testing.
-	// See engine.go handleHITL for the implementation.
-	t.Skip("HITL gate test hangs in automated test environment")
+	g := workflow.NewGraph("gate")
+	g.AddNode(&workflow.Node{
+		ID:   "gate",
+		Role: "hitl_gate",
+		Execute: func(_ context.Context, _ *state.State) (*state.Result, error) {
+			return &state.Result{
+				Status: state.StatusPausedHITL,
+				HITLRequest: &state.HITLRequest{
+					ID:      "h1",
+					Prompt:  "Proceed?",
+					Options: []string{"yes", "no"},
+				},
+			}, nil
+		},
+	})
+	g.AddNode(&workflow.Node{ID: "done", Role: "scribe"})
+	g.AddEdge("gate", "done", nil)
+
+	regs := agent.NewRegistry()
+	regs.Register(agent.Scribe, func() agent.Agent {
+		return agent.NewStubAgent(agent.Scribe,
+			&state.Result{Status: state.StatusCompleted})
+	})
+
+	bus := pubsub.NewBus(64)
+	gateCh := bus.Subscribe(pubsub.EventGate)
+	hitlIn := make(chan state.HITLResponse, 1)
+	store := state.NewStore(t.TempDir())
+	e := NewEngine("test", g, store, regs, bus, hitlIn)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- e.Run(context.Background())
+	}()
+
+	// Wait for the gate event, then send response.
+	select {
+	case ev, ok := <-gateCh:
+		if !ok {
+			t.Fatal("gate channel closed unexpectedly")
+		}
+		if ev.Prompt != "Proceed?" {
+			t.Errorf("prompt: got %q, want %q",
+				ev.Prompt, "Proceed?")
+		}
+		hitlIn <- state.HITLResponse{
+			ID:     "h1",
+			Choice: "yes",
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for gate event")
+	}
+
+	if err := <-done; err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	s := e.State()
+	if s.Status != state.StatusCompleted {
+		t.Errorf("Status: got %d, want Completed", s.Status)
+	}
+	if s.Context["hitl_choice"] != "yes" {
+		t.Errorf("hitl_choice: got %q, want %q",
+			s.Context["hitl_choice"], "yes")
+	}
 }
 
 // --- Cancel ---
 
 func TestCancel(t *testing.T) {
-	g := workflow.NewGraph("slow")
-	g.AddNode(&workflow.Node{ID: "slow", Role: "brainstorm"})
-	g.AddEdge("slow", "slow", nil) // loop forever
+	g := workflow.NewGraph("start")
+	g.AddNode(&workflow.Node{ID: "start", Role: "brainstorm"})
+	// Node with one outgoing edge back to itself. Cancel will
+	// stop the loop via context.
+	g.AddEdge("start", "start", nil)
 
 	regs := agent.NewRegistry()
 	regs.Register(agent.Brainstorm, func() agent.Agent {
@@ -298,6 +359,7 @@ func TestCancel(t *testing.T) {
 	})
 
 	bus := pubsub.NewBus(64)
+	doneCh := bus.Subscribe(pubsub.EventAgentDone)
 	hitlIn := make(chan state.HITLResponse, 1)
 	store := state.NewStore(t.TempDir())
 	e := NewEngine("test", g, store, regs, bus, hitlIn)
@@ -308,7 +370,13 @@ func TestCancel(t *testing.T) {
 		done <- e.Run(ctx)
 	}()
 
-	cancel()
+	// Wait for at least one iteration, then cancel.
+	select {
+	case <-doneCh:
+		cancel()
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for first node")
+	}
 
 	err := <-done
 	if err == nil {
@@ -330,11 +398,19 @@ func TestResume(t *testing.T) {
 	g.AddNode(&workflow.Node{ID: "b", Role: "research"})
 	g.AddEdge("a", "b", nil)
 
-	// First run: execute "a" then cancel after it completes.
+	// First run: execute both nodes in a loop that
+	// self-edges, then cancel after "a" completes.
 	regs1 := agent.NewRegistry()
+	callCount := 0
 	regs1.Register(agent.Brainstorm, func() agent.Agent {
-		return agent.NewStubAgent(agent.Brainstorm,
-			&state.Result{Status: state.StatusCompleted})
+		callCount++
+		if callCount == 1 {
+			return agent.NewStubAgent(agent.Brainstorm,
+				&state.Result{Status: state.StatusCompleted})
+		}
+		// After the first call, block until cancel.
+		return agent.NewStubAgentWithError(agent.Brainstorm,
+			context.Canceled)
 	})
 	regs1.Register(agent.Research, func() agent.Agent {
 		return agent.NewStubAgent(agent.Research,
@@ -342,28 +418,33 @@ func TestResume(t *testing.T) {
 	})
 
 	bus1 := pubsub.NewBus(64)
+	firstDone := bus1.Subscribe(pubsub.EventAgentDone)
 	hitlIn1 := make(chan state.HITLResponse, 1)
 	store1 := state.NewStore(dir)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx1, cancel1 := context.WithCancel(context.Background())
 	e1 := NewEngine("test", g, store1, regs1, bus1, hitlIn1)
 
-	// Run and cancel immediately to stop after first node.
 	go func() {
-		<-ctx.Done()
+		e1.Run(ctx1)
 	}()
-	// We can't easily control exactly when it cancels, so
-	// instead let's save a state manually and resume.
-	e1.State().ActiveNodes = []string{"b"}
-	e1.State().Status = state.StatusRunning
-	e1.State().AuditLog = []state.Event{
-		{Type: "RESULT", NodeID: "a",
-			Message: "completed"},
+
+	// Wait for node "a" to finish once.
+	select {
+	case ev := <-firstDone:
+		if ev.NodeID != "a" {
+			t.Fatalf("expected first done from 'a', got %q",
+				ev.NodeID)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for first node")
 	}
-	if err := store1.Save(e1.State()); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
-	cancel()
+
+	// State should now have "b" as the next active node.
+	// The engine will try to execute "b" next, but we cancel
+	// so the persisted state has ActiveNodes=["b"].
+	cancel1()
+	time.Sleep(10 * time.Millisecond) // let engine persist
 
 	// Now resume from the saved state.
 	regs2 := agent.NewRegistry()
@@ -382,12 +463,13 @@ func TestResume(t *testing.T) {
 		t.Fatalf("ResumeEngine: %v", err)
 	}
 
-	if e2.State().ActiveNodes[0] != "b" {
+	if len(e2.State().ActiveNodes) == 0 ||
+		e2.State().ActiveNodes[0] != "b" {
 		t.Errorf("ActiveNodes: got %v, want [b]",
 			e2.State().ActiveNodes)
 	}
-	if len(e2.State().AuditLog) != 1 {
-		t.Errorf("AuditLog: got %d entries, want 1",
+	if len(e2.State().AuditLog) == 0 {
+		t.Errorf("AuditLog: got %d entries, want > 0",
 			len(e2.State().AuditLog))
 	}
 

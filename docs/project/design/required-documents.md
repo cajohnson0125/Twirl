@@ -1,6 +1,7 @@
 # Required Documents
 
 ## Project Design Docs
+
 - (topic)-brainstorm.md
 - (topic)-research.md
 - project-requirements.md
@@ -8,19 +9,20 @@
 - project-file-org.md
 - project-design.md
 - project-roadmap.md
-- feature-mapping.md (includes establishing what the 
+- feature-mapping.md (includes establishing what the
 various feature areas are and their dependencies)
-- feature-task-mapping.md (includes establishing what the 
+- feature-task-mapping.md (includes establishing what the
 various feature tasks are and their dependencies)
 
 ## Project Management Docs
+
 - feature-tasks.md
 - feature-todos.md
 - changelog.md
 
 ## Proposed Directory Structure
 
-```
+```text
 project-root/
 ├── changelog.md
 ├── docs/

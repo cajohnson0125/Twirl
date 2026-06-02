@@ -68,17 +68,17 @@ The core loop. This is the biggest phase.
 | 4.8 | Implement **event logging**: every dispatch, result, routing decision, and user interaction appends to `AuditLog` in state | `internal/orchestrator/` | Typed events: DISPATCH, RESULT, ROUTE, HITL, ERROR. | ✅ |
 | 4.9 | Write tests for the engine using stub agents | `internal/orchestrator/` | 9 tests: linear path, conditional routing (2 subtests), loop-back, parallel execution, cancel, resume, state persistence, event bus integration. HITL gate test skipped (environment issue). | ✅ |
 
-## Phase 5: Workflow Graph Definition
+## Phase 5: Workflow Graph Definition ✅
 
 Wire the 28 project steps from `project-steps.md` into an actual graph.
 All in pure Go — no config files.
 
-| # | Task | Package | Notes |
-|---|------|---------|-------|
-| 5.1 | Define the **default workflow graph** in Go code — nodes for each specialist role + HITL gate nodes between major phases | `internal/workflow/` | Based on `document-step-mapping.md`. Linear path: Brainstorm, Research, Report, HITL gate, Scribe, Plan, PlanReview, HITL gate, Execution, CodeReview, ... |
-| 5.2 | Define **conditional edges**: CodeReview to Scribe (no issues) vs CodeReview to Triage to Assessment to HITL gate to Execution loop-back (has issues) | `internal/workflow/` | The non-linear routing. |
-| 5.3 | Define **parallel fork** for multiple Execution agents: Plan outputs N tasks, fork into N Execution nodes, join, then CodeReview | `internal/workflow/` | The most complex routing pattern. |
-| 5.4 | Write graph validation: no orphan nodes, all paths eventually reach a terminal node, no cycles without a conditional exit | `internal/workflow/` | Catch configuration errors at startup, not at runtime. |
+| # | Task | Package | Notes | Done |
+|---|------|---------|-------|------|
+| 5.1 | Define the **default workflow graph** in Go code — nodes for each specialist role + HITL gate nodes between major phases | `internal/workflow/` | 19 nodes: brainstorm, research, report, scope_gate, scribe_scope, plan, plan_review, plan_gate, scribe_plan, execution_1/2/3, code_review, triage, assessment, fix_gate, execution_fix, scribe_review, scribe_final. | ✅ |
+| 5.2 | Define **conditional edges**: CodeReview to Scribe (no issues) vs CodeReview to Triage to Assessment to HITL gate to Execution loop-back (has issues) | `internal/workflow/` | `HasIssues()` / `NoIssues()` edge conditions. Also: scope_gate -> research (more_research) / scribe_scope (plan_it), plan_review -> plan (FAIL) / plan_gate (PASS), plan_gate -> plan (revise) / scribe_plan (approve), fix_gate -> execution_fix (fix) / scribe_review (defer). | ✅ |
+| 5.3 | Define **parallel fork** for multiple Execution agents: Plan outputs N tasks, fork into N Execution nodes, join, then CodeReview | `internal/workflow/` | scribe_plan -> execution_1 (unconditional) + execution_2 + execution_3 (conditional on `execution_count` context key). All three converge at code_review. | ✅ |
+| 5.4 | Write graph validation: no orphan nodes, all paths eventually reach a terminal node, no cycles without a conditional exit | `internal/workflow/` | BFS reachability from start, reverse BFS terminal reachability, edge target checks. 8 validation tests. `Validate(DefaultGraph())` passes. | ✅ |
 
 ## Phase 6: TUI Integration
 

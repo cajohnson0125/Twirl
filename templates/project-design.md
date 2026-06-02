@@ -32,7 +32,7 @@
 
 <!-- Significant choices and the reasoning behind them. -->
 
-- 
+-
 
 ## Dependencies
 
@@ -48,4 +48,4 @@
 
 ## Revision History
 
-- 
+-

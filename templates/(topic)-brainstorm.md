@@ -3,6 +3,7 @@
 <!-- Explore a topic. Consider directions, capture thinking, reach a decision. -->
 
 ---
+
 ## Approaches Explored
 
 ### Approach: [NAME]

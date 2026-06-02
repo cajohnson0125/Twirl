@@ -22,7 +22,7 @@
 
 <!-- Key deliverables or checkpoints within this phase. -->
 
-- [ ] 
+- [ ]
 
 #### Deliverables
 
@@ -44,4 +44,4 @@
 
 ## Revision History
 
-- 
+-

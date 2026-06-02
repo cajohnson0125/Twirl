@@ -76,11 +76,11 @@ func ResumeEngine(
 	}, nil
 }
 
-// State returns a copy of the current engine state.
+// State returns a deep copy of the current engine state.
 func (e *Engine) State() *state.State {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.state
+	return e.snapshotState()
 }
 
 // Run drives the core loop until the workflow completes, fails,
@@ -143,18 +143,19 @@ func (e *Engine) Run(ctx context.Context) error {
 		nextNodes := e.evaluateRouting(active, results)
 
 		// Check if any result paused for HITL.
-		paused := false
 		for _, r := range results {
-			if r.Status == state.StatusPausedHITL && r.HITLRequest != nil {
+			if r.Status == state.StatusPausedHITL &&
+				r.HITLRequest != nil {
 				e.state.Status = state.StatusPausedHITL
 				e.state.PendingHITL = r.HITLRequest
-				paused = true
 				break
 			}
 		}
-		if !paused {
-			e.state.ActiveNodes = nextNodes
-		}
+
+		// Always advance to next nodes. If paused for HITL,
+		// the next iteration will handle the gate before
+		// executing them.
+		e.state.ActiveNodes = nextNodes
 		e.mu.Unlock()
 	}
 }
@@ -181,6 +182,11 @@ func (e *Engine) executeNodes(
 					"node %q not found in graph", id)
 			}
 
+			// Log dispatch.
+			e.mu.Lock()
+			e.appendLog("DISPATCH", id, node.Role)
+			e.mu.Unlock()
+
 			// Publish agent started event.
 			e.bus.Publish(pubsub.Event{
 				Type:   pubsub.EventAgentStarted,
@@ -200,7 +206,7 @@ func (e *Engine) executeNodes(
 				res, err = node.Execute(gCtx, snapshot)
 			} else {
 				res, err = e.dispatchAgent(
-					gCtx, id, node.Role, snapshot)
+					gCtx, node.Role, snapshot)
 			}
 
 			if err != nil {
@@ -253,7 +259,7 @@ func (e *Engine) executeNodes(
 // creates a Task from the current state, and executes it.
 func (e *Engine) dispatchAgent(
 	ctx context.Context,
-	nodeID, role string,
+	role string,
 	s *state.State,
 ) (*state.Result, error) {
 	a, err := e.regs.Get(agent.Role(role))
@@ -364,7 +370,7 @@ func (e *Engine) snapshotState() *state.State {
 		ProjectID:   e.state.ProjectID,
 		ActiveNodes: make([]string, len(e.state.ActiveNodes)),
 		Status:      e.state.Status,
-		Context:     make(map[string]string),
+		Context:     make(map[string]string, len(e.state.Context)),
 		AuditLog:    make([]state.Event, len(e.state.AuditLog)),
 	}
 	copy(cp.ActiveNodes, e.state.ActiveNodes)
@@ -372,5 +378,13 @@ func (e *Engine) snapshotState() *state.State {
 		cp.Context[k] = v
 	}
 	copy(cp.AuditLog, e.state.AuditLog)
+	if e.state.PendingHITL != nil {
+		cp.PendingHITL = &state.HITLRequest{
+			ID:      e.state.PendingHITL.ID,
+			Prompt:  e.state.PendingHITL.Prompt,
+			Options: make([]string, len(e.state.PendingHITL.Options)),
+		}
+		copy(cp.PendingHITL.Options, e.state.PendingHITL.Options)
+	}
 	return cp
 }

@@ -57,9 +57,8 @@
 - **Components:** Coordinator goroutine, agent dispatch via goroutines, channels for
   streaming and HITL, errgroup for parallel execution
 - **Rationale:** No external library dependency; idiomatic Go using goroutines, channels,
-  and context. LangGraphGo evaluated (M2) but offers no advantage over native Go
-  patterns -- both require manual persistence, retry, and error recovery. See
-  docs/research/orchestration-recommendation.md for full evaluation.
+  and context. LangGraphGo evaluated but offers no advantage over native Go
+  patterns -- both require manual persistence, retry, and error recovery.
 
 ## Protocols
 
@@ -68,7 +67,7 @@
 
 ## State Persistence
 
-- **Format:** TBD -- human-readable, version-controllable (YAML, JSON, or similar)
+- **Format:** TBD --
 - **Rationale:** Must survive session restarts, be inspectable by users, and support
   concurrent reads/writes from agents
 

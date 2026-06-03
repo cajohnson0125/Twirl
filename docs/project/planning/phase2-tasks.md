@@ -3,12 +3,12 @@
 **Goal:** Build the dual-memory system. Enforce the strict schema for the Library and set up the persistent databases for the Archives.
 
 ### 2.1 The Library Schema
-- [ ] Create `internal/memory/library.go` with `LibraryManager` struct
-- [ ] Parse `required-documents.md` file to extract directory structure
-- [ ] Generate `map[string]bool` whitelist of allowed file paths
-- [ ] Implement `LibraryManager.Init()` to create `docs/` directory tree if missing
-- [ ] Create all required subdirectories: `docs/project/brainstorm/`, `docs/project/research/`, etc.
-- [ ] Write unit test verifying directory creation matches schema
+- [x] Create `internal/memory/library.go` with `LibraryManager` struct
+- [x] Parse `required-documents.md` file to extract directory structure
+- [x] Generate `map[string]bool` whitelist of allowed file paths
+- [x] Implement `LibraryManager.Init()` to create `docs/` directory tree if missing
+- [x] Create all required subdirectories: `docs/project/brainstorm/`, `docs/project/research/`, etc.
+- [x] Write unit test verifying directory creation matches schema
 
 ### 2.2 The Library Enforcer
 - [ ] Implement `LibraryManager.ReadFile(path string) (string, error)`

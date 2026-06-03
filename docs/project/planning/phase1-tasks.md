@@ -14,7 +14,6 @@
 - [ ] Install `charmbracelet/fang` dependency
 - [ ] Create `cmd/twirl/main.go` with Fang CLI setup
 - [ ] Add `--debug` flag to enable verbose logging
-- [ ] Add `--model` flag to specify LLM model ID (store for later use)
 - [ ] Verify CLI boots and displays help text
 
 ### 1.3 The Event Bus

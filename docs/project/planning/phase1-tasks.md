@@ -36,14 +36,14 @@
 - [x] Wire Bubbletea to send to `uiToEngine` channel when user submits input
 
 ### 1.5 The Dummy Loop
-- [ ] Create dummy background goroutine that listens to `uiToEngine`
-- [ ] Implement hardcoded response: "I received your message: {input}"
-- [ ] Send response back through `engineToUI` as `RenderMsg`
-- [ ] Update Bubbletea View to render messages in viewport
-- [ ] Install `charmbracelet/glamour` for markdown rendering
-- [ ] Wrap viewport content with Glamour renderer
-- [ ] Test: Type message → See dummy response rendered as markdown
-- [ ] Test: Verify UI doesn't freeze during message processing
+- [x] Create dummy background goroutine that listens to `uiToEngine`
+- [x] Implement hardcoded response: "I received your message: {input}"
+- [x] Send response back through `engineToUI` as `RenderMsg`
+- [x] Update Bubbletea View to render messages in viewport
+- [x] Install `charmbracelet/glamour` for markdown rendering
+- [x] Wrap viewport content with Glamour renderer
+- [x] Test: Type message → See dummy response rendered as markdown
+- [x] Test: Verify UI doesn't freeze during message processing
 
 **Phase 1 Definition of Done:** You can type in the TUI, hit enter, and see a dummy response stream back into the Glamour viewport without the UI freezing.
 

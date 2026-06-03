@@ -185,12 +185,14 @@ func (e *Engine) send(msg RenderMsg) {
 	}
 }
 
-// handleEvent dispatches incoming events. Phase 1.5 replaces
-// these stubs with real agent logic.
+// handleEvent dispatches incoming events. The UserInput handler
+// simulates streaming a dummy response back to the UI. Phase 2
+// replaces this with real agent logic.
 func (e *Engine) handleEvent(ev Event) {
 	switch ev := ev.(type) {
 	case UserInput:
 		log.Debug("engine: user input", "text", ev.Text)
+		go e.dummyStream(ev.Text)
 	case GateResponse:
 		log.Debug("engine: gate response",
 			"id", ev.GateID, "approved", ev.Approved)
@@ -203,4 +205,12 @@ func (e *Engine) handleEvent(ev Event) {
 		log.Warn("engine: unknown event",
 			"type", fmt.Sprintf("%T", ev))
 	}
+}
+
+// dummyStream simulates a streaming response with a short delay
+// between chunks to prove the UI stays responsive.
+func (e *Engine) dummyStream(input string) {
+	response := "I received your message: " + input
+	e.send(StreamChunk{Content: response, Done: false})
+	e.send(StreamChunk{Content: "", Done: true})
 }

@@ -102,3 +102,69 @@ func (lm *LibraryManager) Whitelist() map[string]bool {
 func (lm *LibraryManager) Dirs() []string {
 	return lm.dirs
 }
+
+// ReadFile reads and returns the content of a Library file.
+// Returns an error if the path is not in the schema whitelist.
+func (lm *LibraryManager) ReadFile(relPath string) (string, error) {
+	if !lm.isValidPath(relPath) {
+		return "", fmt.Errorf(
+			"Path violates Library schema: %s", relPath)
+	}
+	full := filepath.Join(lm.rootDir, filepath.FromSlash(relPath))
+	data, err := os.ReadFile(full)
+	if err != nil {
+		return "", fmt.Errorf("library: read %s: %w", relPath, err)
+	}
+	return string(data), nil
+}
+
+// WriteFile writes content to a Library file. Returns an error
+// if the path is not in the schema whitelist. Parent directories
+// are created automatically.
+func (lm *LibraryManager) WriteFile(
+	relPath, content string,
+) error {
+	if !lm.isValidPath(relPath) {
+		return fmt.Errorf(
+			"Path violates Library schema: %s", relPath)
+	}
+	full := filepath.Join(lm.rootDir, filepath.FromSlash(relPath))
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		return fmt.Errorf("library: mkdir for %s: %w", relPath, err)
+	}
+	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("library: write %s: %w", relPath, err)
+	}
+	return nil
+}
+
+// ListFiles enumerates all files present in the Library,
+// returning their paths relative to rootDir. Only files in
+// schema-valid locations are included.
+func (lm *LibraryManager) ListFiles() ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(lm.rootDir, func(
+		path string,
+		d os.DirEntry,
+		err error,
+	) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(lm.rootDir, path)
+		if err != nil {
+			return err
+		}
+		if lm.isValidPath(rel) {
+			files = append(files, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("library: list files: %w", err)
+	}
+	return files, nil
+}

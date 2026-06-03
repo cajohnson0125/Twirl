@@ -3,6 +3,7 @@ package memory
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 )
 
@@ -121,6 +122,136 @@ func TestLibraryIsValidPath_PatternFiles(t *testing.T) {
 	for _, p := range invalid {
 		if lm.isValidPath(p) {
 			t.Errorf("expected %q to be invalid", p)
+		}
+	}
+}
+
+func TestLibraryWrite_ValidPath(t *testing.T) {
+	root := t.TempDir()
+	lm := NewLibraryManager(root)
+	if err := lm.Init(); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	err := lm.WriteFile(
+		"docs/project/design/project-requirements.md",
+		"# Requirements",
+	)
+	if err != nil {
+		t.Fatalf("valid write failed: %v", err)
+	}
+
+	got, err := lm.ReadFile(
+		"docs/project/design/project-requirements.md",
+	)
+	if err != nil {
+		t.Fatalf("read back failed: %v", err)
+	}
+	if got != "# Requirements" {
+		t.Fatalf("content mismatch: got %q", got)
+	}
+}
+
+func TestLibraryWrite_PatternPath(t *testing.T) {
+	root := t.TempDir()
+	lm := NewLibraryManager(root)
+	if err := lm.Init(); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	err := lm.WriteFile(
+		"docs/project/brainstorm/auth-brainstorm.md",
+		"# Auth Brainstorm",
+	)
+	if err != nil {
+		t.Fatalf("pattern write failed: %v", err)
+	}
+
+	got, err := lm.ReadFile(
+		"docs/project/brainstorm/auth-brainstorm.md",
+	)
+	if err != nil {
+		t.Fatalf("read back failed: %v", err)
+	}
+	if got != "# Auth Brainstorm" {
+		t.Fatalf("content mismatch: got %q", got)
+	}
+}
+
+func TestLibraryWrite_InvalidPath(t *testing.T) {
+	root := t.TempDir()
+	lm := NewLibraryManager(root)
+
+	err := lm.WriteFile("docs/secret.txt", "oops")
+	if err == nil {
+		t.Fatal("expected error for invalid path")
+	}
+
+	want := "Path violates Library schema"
+	if err.Error()[:len(want)] != want {
+		t.Fatalf("error = %q, want prefix %q", err.Error(), want)
+	}
+}
+
+func TestLibraryRead_InvalidPath(t *testing.T) {
+	root := t.TempDir()
+	lm := NewLibraryManager(root)
+
+	_, err := lm.ReadFile("random.txt")
+	if err == nil {
+		t.Fatal("expected error for invalid read path")
+	}
+}
+
+func TestLibraryRead_MissingFile(t *testing.T) {
+	root := t.TempDir()
+	lm := NewLibraryManager(root)
+
+	_, err := lm.ReadFile("changelog.md")
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestLibraryListFiles(t *testing.T) {
+	root := t.TempDir()
+	lm := NewLibraryManager(root)
+	if err := lm.Init(); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	lm.WriteFile("changelog.md", "v0.1")
+	lm.WriteFile(
+		"docs/project/design/project-design.md", "design")
+	lm.WriteFile(
+		"docs/project/brainstorm/auth-brainstorm.md",
+		"brainstorm",
+	)
+
+	os.WriteFile(
+		filepath.Join(root, "docs", "junk.txt"),
+		[]byte("junk"), 0o644,
+	)
+
+	files, err := lm.ListFiles()
+	if err != nil {
+		t.Fatalf("ListFiles: %v", err)
+	}
+
+	sort.Strings(files)
+
+	want := []string{
+		"changelog.md",
+		"docs/project/brainstorm/auth-brainstorm.md",
+		"docs/project/design/project-design.md",
+	}
+	if len(files) != len(want) {
+		t.Fatalf("got %d files, want %d: %v",
+			len(files), len(want), files)
+	}
+	for i, f := range want {
+		if files[i] != f {
+			t.Errorf("files[%d] = %q, want %q", i, files[i], f)
 		}
 	}
 }

@@ -11,13 +11,13 @@
 - [x] Write unit test verifying directory creation matches schema
 
 ### 2.2 The Library Enforcer
-- [ ] Implement `LibraryManager.ReadFile(path string) (string, error)`
-- [ ] Add path validation: reject paths not in whitelist
-- [ ] Implement `LibraryManager.WriteFile(path, content string) error`
-- [ ] Add path validation: reject writes to invalid paths with descriptive error
-- [ ] Implement `LibraryManager.ListFiles() []string` to enumerate Library contents
-- [ ] Write unit test: valid write succeeds
-- [ ] Write unit test: invalid write returns error with message "Path violates Library schema"
+- [x] Implement `LibraryManager.ReadFile(path string) (string, error)`
+- [x] Add path validation: reject paths not in whitelist
+- [x] Implement `LibraryManager.WriteFile(path, content string) error`
+- [x] Add path validation: reject writes to invalid paths with descriptive error
+- [x] Implement `LibraryManager.ListFiles() []string` to enumerate Library contents
+- [x] Write unit test: valid write succeeds
+- [x] Write unit test: invalid write returns error with message "Path violates Library schema"
 
 ### 2.3 Episodic Database (SQLite)
 - [ ] Install `modernc.org/sqlite` dependency (pure Go, no CGO)

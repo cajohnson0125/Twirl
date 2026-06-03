@@ -10,6 +10,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/cajohnson0125/Twirl/internal/engine"
 )
 
 // Stacked layout:
@@ -79,6 +81,8 @@ type agent struct {
 // --- Model ---
 
 type model struct {
+	eng *engine.Engine
+
 	width  int
 	height int
 	ready  bool
@@ -136,6 +140,7 @@ func newRenderer(width int) (*glamour.TermRenderer, error) {
 }
 
 func newModel(
+	eng *engine.Engine,
 	cursorShape string,
 	cursorBlink bool,
 ) (model, error) {
@@ -166,6 +171,7 @@ func newModel(
 	)
 
 	m := model{
+		eng:   eng,
 		cs:    cs,
 		input: ti,
 		spin:  sp,
@@ -188,8 +194,24 @@ func newModel(
 	return m, nil
 }
 
+// waitForEngineMsg returns a Cmd that blocks until the
+// engine sends a RenderMsg, then delivers it as a tea.Msg.
+// When the engine channel closes it returns QuitMsg.
+func waitForEngineMsg(e *engine.Engine) tea.Cmd {
+	if e == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		msg, ok := <-e.ReceiveMsg()
+		if !ok {
+			return tea.QuitMsg{}
+		}
+		return msg
+	}
+}
+
 func (m model) Init() tea.Cmd {
-	return m.spin.Tick
+	return tea.Batch(m.spin.Tick, waitForEngineMsg(m.eng))
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -238,6 +260,58 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.output.SetHeight(m.d.vpContentH)
 			m.syncOutput()
 		}
+
+	case engine.StreamChunk:
+		if msg.Content != "" {
+			m.logs = append(m.logs,
+				styleAI.Render("AI: ")+msg.Content,
+			)
+		}
+		if msg.Done {
+			m.logs = append(m.logs,
+				styleDivider.Render(
+					strings.Repeat("─", max(20, m.d.vpContentW)),
+				),
+			)
+		}
+		m.syncOutput()
+		m.output.GotoBottom()
+		cmds = append(cmds, waitForEngineMsg(m.eng))
+
+	case engine.StatusUpdate:
+		m.phase = msg.Phase
+		for i := range m.agents {
+			if m.agents[i].name == msg.Agent {
+				m.agents[i].status = statusActive
+			} else {
+				m.agents[i].status = statusIdle
+			}
+		}
+		cmds = append(cmds, waitForEngineMsg(m.eng))
+
+	case engine.ErrorMsg:
+		m.logs = append(m.logs,
+			styleError.Render("Error: "+msg.Message),
+		)
+		m.syncOutput()
+		m.output.GotoBottom()
+		cmds = append(cmds, waitForEngineMsg(m.eng))
+
+	case engine.ShowGate:
+		m.logs = append(m.logs,
+			styleAccent.Render("Gate: "+msg.Message),
+		)
+		m.syncOutput()
+		m.output.GotoBottom()
+		cmds = append(cmds, waitForEngineMsg(m.eng))
+
+	case engine.ShowDiff:
+		m.logs = append(m.logs,
+			styleAI.Render("Diff: "+msg.Title)+"\n"+msg.Content,
+		)
+		m.syncOutput()
+		m.output.GotoBottom()
+		cmds = append(cmds, waitForEngineMsg(m.eng))
 	}
 
 	var spinCmd tea.Cmd
@@ -268,17 +342,10 @@ func (m model) startStreaming(
 	m.logs = append(m.logs,
 		styleUser.Render("You: ")+prompt,
 	)
-	m.logs = append(m.logs,
-		styleAI.Render("AI: ")+"I received your message: "+prompt,
-	)
-	m.logs = append(m.logs,
-		styleDivider.Render(
-			strings.Repeat("─", max(20, m.d.vpContentW)),
-		),
-	)
 	m.syncOutput()
 	m.output.GotoBottom()
 	m.input.Reset()
+	m.eng.SendEvent(engine.UserInput{Text: prompt})
 	return m, nil
 }
 
@@ -461,10 +528,11 @@ func (m model) viewFooter() string {
 
 // Run starts the TUI program with the given cursor config.
 func Run(
+	eng *engine.Engine,
 	cursorShape string,
 	cursorBlink bool,
 ) error {
-	m, err := newModel(cursorShape, cursorBlink)
+	m, err := newModel(eng, cursorShape, cursorBlink)
 	if err != nil {
 		return err
 	}

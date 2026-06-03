@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/cajohnson0125/Twirl/internal/config"
+	"github.com/cajohnson0125/Twirl/internal/engine"
 	"github.com/cajohnson0125/Twirl/internal/tui"
 	"github.com/charmbracelet/fang"
 	"github.com/charmbracelet/log"
@@ -26,7 +27,10 @@ func main() {
 				log.SetReportCaller(true)
 			}
 			cfg := config.Load()
-			return tui.Run(cfg.Cursor, cfg.Blink)
+			eng := engine.New()
+			go eng.Start(context.Background())
+			defer eng.Stop()
+			return tui.Run(eng, cfg.Cursor, cfg.Blink)
 		},
 	}
 

@@ -17,23 +17,23 @@
 - [x] Verify CLI boots and displays help text
 
 ### 1.3 The Event Bus
-- [ ] Create `internal/engine/engine.go` with `Engine` struct
-- [ ] Define `Event` type with variants (UserInput, GateResponse, ToolCall, etc.)
-- [ ] Define `RenderMsg` type with variants (StreamChunk, ShowGate, ShowDiff, etc.)
-- [ ] Add `uiToEngine chan Event` to Engine struct
-- [ ] Add `engineToUI chan RenderMsg` to Engine struct
-- [ ] Implement `Engine.Start()` method that listens on channels
-- [ ] Write unit test proving channels can send/receive messages
+- [x] Create `internal/engine/engine.go` with `Engine` struct
+- [x] Define `Event` type with variants (UserInput, GateResponse, ToolCall, etc.)
+- [x] Define `RenderMsg` type with variants (StreamChunk, ShowGate, ShowDiff, etc.)
+- [x] Add `uiToEngine chan Event` to Engine struct
+- [x] Add `engineToUI chan RenderMsg` to Engine struct
+- [x] Implement `Engine.Start()` method that listens on channels
+- [x] Write unit test proving channels can send/receive messages
 
 ### 1.4 The TUI Shell
-- [ ] Install `charmbracelet/bubbletea`, `charmbracelet/bubbles`, `charmbracelet/lipgloss`
-- [ ] Create `internal/tui/model.go` with base Bubbletea model
-- [ ] Add `bubbles/textinput` component for user prompts
-- [ ] Add `bubbles/viewport` component for chat history
-- [ ] Implement `Init()`, `Update()`, and `View()` methods
-- [ ] Style the layout with Lip Gloss (chat area on top, input on bottom)
-- [ ] Wire Bubbletea to read from `engineToUI` channel in Update loop
-- [ ] Wire Bubbletea to send to `uiToEngine` channel when user submits input
+- [x] Install `charmbracelet/bubbletea`, `charmbracelet/bubbles`, `charmbracelet/lipgloss`
+- [x] Create `internal/tui/model.go` with base Bubbletea model
+- [x] Add `bubbles/textinput` component for user prompts
+- [x] Add `bubbles/viewport` component for chat history
+- [x] Implement `Init()`, `Update()`, and `View()` methods
+- [x] Style the layout with Lip Gloss (chat area on top, input on bottom)
+- [x] Wire Bubbletea to read from `engineToUI` channel in Update loop
+- [x] Wire Bubbletea to send to `uiToEngine` channel when user submits input
 
 ### 1.5 The Dummy Loop
 - [ ] Create dummy background goroutine that listens to `uiToEngine`

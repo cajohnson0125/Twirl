@@ -11,10 +11,10 @@
 - [x] Create a `Makefile` with targets: `build`, `test`, `lint`, `run`
 
 ### 1.2 CLI Entrypoint
-- [ ] Install `charmbracelet/fang` dependency
-- [ ] Create `cmd/twirl/main.go` with Fang CLI setup
-- [ ] Add `--debug` flag to enable verbose logging
-- [ ] Verify CLI boots and displays help text
+- [x] Install `charmbracelet/fang` dependency
+- [x] Create `cmd/twirl/main.go` with Fang CLI setup
+- [x] Add `--debug` flag to enable verbose logging
+- [x] Verify CLI boots and displays help text
 
 ### 1.3 The Event Bus
 - [ ] Create `internal/engine/engine.go` with `Engine` struct

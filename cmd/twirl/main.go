@@ -20,7 +20,7 @@ func main() {
 			"with human-in-the-loop gates.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.Load()
-			return tui.Run(cfg.Cursor, cfg.Blink, cfg.LLM)
+			return tui.Run(cfg.Cursor, cfg.Blink)
 		},
 	}
 

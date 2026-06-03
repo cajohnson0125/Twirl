@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -12,8 +10,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/cajohnson0125/Twirl/internal/config"
-	"github.com/cajohnson0125/Twirl/internal/llm"
 )
 
 // Stacked layout:
@@ -80,17 +76,6 @@ type agent struct {
 	status agentStatus
 }
 
-// --- Streaming message types ---
-
-// streamMsg is the envelope for all messages from the LLM
-// streaming goroutine. Tokens and done signals arrive on the
-// same channel.
-type streamMsg struct {
-	token string
-	err   error
-	done  bool
-}
-
 // --- Model ---
 
 type model struct {
@@ -107,14 +92,6 @@ type model struct {
 	logs   []string
 	phase  string
 	cs     cursorStyle
-
-	// LLM streaming state.
-	llmClient   *llm.Client
-	llmCfg      config.LLM
-	llmCancel   context.CancelFunc
-	streaming   bool
-	streamCh    chan streamMsg
-	responseBuf strings.Builder
 
 	// Markdown renderer for AI responses.
 	mdRenderer *glamour.TermRenderer
@@ -161,7 +138,6 @@ func newRenderer(width int) (*glamour.TermRenderer, error) {
 func newModel(
 	cursorShape string,
 	cursorBlink bool,
-	llmCfg config.LLM,
 ) (model, error) {
 	shape := parseCursorShape(cursorShape)
 	cs := cursorStyle{shape: shape, blink: cursorBlink}
@@ -209,23 +185,6 @@ func newModel(
 		logs: []string{"Twirl ready"},
 	}
 
-	// Store LLM config for lazy init on first message.
-	if !llmCfg.IsZero() {
-		m.llmCfg = llmCfg
-		m.logs = append(m.logs,
-			styleLabel.Render(
-				"LLM: "+llmCfg.Model+" @ "+llmCfg.BaseURL,
-			),
-		)
-	} else {
-		m.logs = append(m.logs,
-			styleLabel.Render(
-				"No LLM configured. " +
-					"Edit ~/.config/twirl/config.toml",
-			),
-		)
-	}
-
 	return m, nil
 }
 
@@ -240,34 +199,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c":
-			if m.streaming {
-				if m.llmCancel != nil {
-					m.llmCancel()
-				}
-				return m.finishStreaming(nil), nil
-			}
 			return m, func() tea.Msg { return tea.QuitMsg{} }
 		case "enter":
-			if m.streaming {
-				return m, nil
-			}
 			if val := m.input.Value(); val != "" {
-				if m.llmCfg.IsZero() {
-					m.logs = append(m.logs,
-						styleUser.Render("You: ")+val,
-					)
-					m.logs = append(m.logs,
-						styleError.Render(
-							"No LLM configured. " +
-								"Edit " +
-								"~/.config/twirl/" +
-								"config.toml",
-						),
-					)
-					m.syncOutput()
-					m.input.Reset()
-					return m, nil
-				}
 				return m.startStreaming(val)
 			}
 
@@ -278,18 +212,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.output.ScrollDown(1)
 			return m, nil
 		}
-
-	case streamMsg:
-		if msg.done {
-			return m.finishStreaming(msg.err), nil
-		}
-		if msg.err != nil {
-			return m, nil
-		}
-		m.responseBuf.WriteString(msg.token)
-		m.syncOutput()
-		m.output.GotoBottom()
-		return m, m.waitStream()
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -338,110 +260,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// startStreaming begins an LLM streaming request.
+// startStreaming echoes input back as a placeholder until
+// the Engine channel bus is wired in (Phase 1.3).
 func (m model) startStreaming(
 	prompt string,
 ) (tea.Model, tea.Cmd) {
-	// Lazy-init LLM client on first message.
-	if m.llmClient == nil {
-		client, err := llm.New(m.llmCfg)
-		if err != nil {
-			m.logs = append(m.logs,
-				styleUser.Render("You: ")+prompt,
-			)
-			m.logs = append(m.logs,
-				styleError.Render(
-					"LLM error: "+err.Error(),
-				),
-			)
-			m.syncOutput()
-			m.input.Reset()
-			return m, nil
-		}
-		m.llmClient = client
-	}
-
 	m.logs = append(m.logs,
 		styleUser.Render("You: ")+prompt,
 	)
-	m.phase = "LLM ▸"
-	m.streaming = true
-	m.responseBuf.Reset()
-	m.streamCh = make(chan streamMsg, 64)
-	m.input.Placeholder = "Waiting for response..."
-	m.input.Blur()
-	m.input.Reset()
-	m.syncOutput()
-	m.output.GotoBottom()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	m.llmCancel = cancel
-
-	go m.llmClient.Stream(
-		ctx,
-		prompt,
-		func(token string) {
-			m.streamCh <- streamMsg{token: token}
-		},
-		func(err error) {
-			m.streamCh <- streamMsg{done: true, err: err}
-		},
+	m.logs = append(m.logs,
+		styleAI.Render("AI: ")+"I received your message: "+prompt,
 	)
-
-	return m, m.waitStream()
-}
-
-// waitStream returns a Cmd that blocks until the next stream
-// message arrives.
-func (m model) waitStream() tea.Cmd {
-	return func() tea.Msg {
-		msg, ok := <-m.streamCh
-		if !ok {
-			return streamMsg{done: true}
-		}
-		return msg
-	}
-}
-
-// finishStreaming ends the streaming state.
-func (m model) finishStreaming(err error) tea.Model {
-	m.streaming = false
-	m.llmCancel = nil
-	m.phase = "Idle"
-	m.input.Placeholder = "Type a message..."
-	m.input.Focus()
-
-	if err != nil {
-		var errMsg string
-		if errors.Is(err, context.Canceled) {
-			errMsg = "Request cancelled."
-		} else {
-			errMsg = fmt.Sprintf("LLM error: %s", err)
-		}
-		m.logs = append(m.logs,
-			styleError.Render(errMsg),
-		)
-	} else if m.responseBuf.Len() > 0 {
-		raw := m.responseBuf.String()
-		idx := len(m.logs)
-		m.logs = append(m.logs, m.renderMarkdown(raw))
-		m.aiRaw = append(m.aiRaw, aiEntry{
-			logIndex: idx,
-			rawText:  raw,
-		})
-	}
-
-	m.responseBuf.Reset()
-
 	m.logs = append(m.logs,
 		styleDivider.Render(
 			strings.Repeat("─", max(20, m.d.vpContentW)),
 		),
 	)
-
 	m.syncOutput()
 	m.output.GotoBottom()
-	return m
+	m.input.Reset()
+	return m, nil
 }
 
 // renderMarkdown renders AI response text through the
@@ -487,16 +325,6 @@ func (m *model) syncOutput() {
 		} else {
 			lines = append(lines, wrapLine(line, w)...)
 		}
-	}
-
-	if m.streaming && m.responseBuf.Len() > 0 {
-		lines = append(lines,
-			wrapLine(
-				styleAI.Render("AI: ")+
-					m.responseBuf.String(),
-				w,
-			)...,
-		)
 	}
 
 	m.output.SetContent(strings.Join(lines, "\n"))
@@ -631,14 +459,12 @@ func (m model) viewFooter() string {
 	)
 }
 
-// Run starts the TUI program with the given cursor config
-// and LLM configuration.
+// Run starts the TUI program with the given cursor config.
 func Run(
 	cursorShape string,
 	cursorBlink bool,
-	llmCfg config.LLM,
 ) error {
-	m, err := newModel(cursorShape, cursorBlink, llmCfg)
+	m, err := newModel(cursorShape, cursorBlink)
 	if err != nil {
 		return err
 	}

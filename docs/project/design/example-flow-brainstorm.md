@@ -39,13 +39,14 @@
     |       v
     +--<----+
     |
-    |   Orchestrator presents to user (clarify: tech or ELI5?)
+    |   Orchestrator proposes next step (gate: user approves, rejects, or suggests different)
     |
-    |   USER -> "plan it" or "need more info"
+    |   on approval: dispatch next specialist
+    |   on reject or suggest different: Orchestrator re-evaluates and re-proposes
     |     |
-    |     +-- "need more info" -> dispatch Researcher again
+    |     +-- if approval includes "more research" -> dispatch Researcher again
     |     |
-    |     +-- "plan it" -> [to Planning Phase]
+    |     +-- if approval includes "plan it" -> [to Planning Phase]
 
     ```
 
@@ -119,9 +120,8 @@
   |       v
   +--<----+
   |
-  |   Orchestrator presents findings to user (clarify: tech or ELI5?)
-  |   Orchestrator collects fix/defer decision per issue
-  |   writes decisions to decisions/fix-defer.md
+  |   Orchestrator proposes next step (gate: user approves, rejects, or suggests different)
+  |   on fix/defer per issue: write decisions to decisions/fix-defer.md
   |   >> event: DECISIONS_MADE
   |
   |   dispatch Documentation
@@ -159,5 +159,5 @@
   +--<----+
   |
   v
-  Orchestrator notifies USER -> IDLE
+  Orchestrator -> IDLE (waits for next user input)
 ```

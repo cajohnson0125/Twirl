@@ -1,7 +1,6 @@
 package agent
 
-// Role identifies a specialist agent. Used by the engine to look
-// up agents in the Registry and by the graph to label nodes.
+// Role identifies a specialist agent.
 type Role string
 
 const (

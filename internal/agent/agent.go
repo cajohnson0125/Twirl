@@ -1,23 +1,32 @@
 package agent
 
-import (
-	"context"
+import "context"
 
-	"github.com/cajohnson0125/Twirl/internal/state"
-)
+// StreamFunc is called by agents to emit tokens during execution.
+// The coordination layer wires this to forward tokens to the user.
+type StreamFunc func(token string)
 
-// Agent is the interface every specialist must implement. The engine
-// dispatches agents through this interface — it never knows about
-// specific roles beyond what Role() returns.
+// Task is what the coordinator sends to an agent when dispatching it.
+type Task struct {
+	Instruction string
+	Context     map[string]string
+	Stream      StreamFunc
+
+	// HITL channels — the coordinator wires these. Agent sends a
+	// prompt string, receives a response string. Nil if the
+	// specialist doesn't need user interaction.
+	HITLPrompt  chan<- string
+	HITLResponse <-chan string
+}
+
+// Result is what an agent returns after executing a task.
+type Result struct {
+	OutputPath string
+	Context    map[string]string
+}
+
+// Agent is the interface every specialist must implement.
 type Agent interface {
-	// Role identifies the specialist (Brainstorm, Research, etc.).
 	Role() Role
-
-	// Execute runs the specialist's task. It receives a context for
-	// cancellation, a task with instructions and context, and returns
-	// a result the engine uses for routing decisions.
-	Execute(
-		ctx context.Context,
-		task *Task,
-	) (*state.Result, error)
+	Execute(ctx context.Context, task *Task) (*Result, error)
 }

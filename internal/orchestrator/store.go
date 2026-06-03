@@ -1,22 +1,35 @@
-package state
+package orchestrator
 
 import (
 	"bytes"
 	"encoding/gob"
 	"os"
 	"path/filepath"
+	"time"
 )
 
-// Store reads and writes engine state as binary gob to a
-// hidden .twirl directory. The state file is not human-readable
-// by design — only agent outputs (Markdown) are text.
+// State is the coordinator's persistent state. Serialized as binary
+// gob to .twirl/state.gob.
+type State struct {
+	ProjectID string
+	Context   map[string]string
+	AuditLog  []AuditEntry
+}
+
+// AuditEntry records a single event in the workflow trail.
+type AuditEntry struct {
+	Phase     string
+	Message   string
+	Timestamp time.Time
+}
+
+// Store reads and writes coordinator state to disk.
 type Store struct {
 	dir  string
 	path string
 }
 
 // NewStore creates a Store rooted at the given project directory.
-// State is persisted to <projectDir>/.twirl/state.gob.
 func NewStore(projectDir string) *Store {
 	dir := filepath.Join(projectDir, ".twirl")
 	return &Store{
@@ -25,9 +38,7 @@ func NewStore(projectDir string) *Store {
 	}
 }
 
-// Save serializes state to binary and writes to disk atomically.
-// Writes to a temp file first, then renames to prevent corruption
-// on crash.
+// Save serializes state to binary and writes atomically.
 func (s *Store) Save(st *State) error {
 	if err := os.MkdirAll(s.dir, 0o755); err != nil {
 		return err
@@ -45,8 +56,8 @@ func (s *Store) Save(st *State) error {
 	return os.Rename(tmp, s.path)
 }
 
-// Load reads the binary state file from disk. Returns os.ErrNotExist
-// if no state file exists (fresh project).
+// Load reads the state file. Returns os.ErrNotExist if no state
+// file exists.
 func (s *Store) Load() (*State, error) {
 	data, err := os.ReadFile(s.path)
 	if err != nil {

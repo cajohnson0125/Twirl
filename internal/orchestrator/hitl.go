@@ -1,7 +1,6 @@
-package state
+package orchestrator
 
-// HITLRequest is sent to the presentation layer when the engine
-// needs human input before proceeding.
+// HITLRequest is sent when a specialist needs human input.
 type HITLRequest struct {
 	ID      string
 	Prompt  string

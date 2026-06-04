@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 
+	"charm.land/fantasy"
 	"github.com/charmbracelet/log"
 )
 
@@ -46,6 +47,13 @@ func (ToolResult) eventTag() {}
 type Cancel struct{}
 
 func (Cancel) eventTag() {}
+
+// SpecialistFinished is sent when a specialist completes its task.
+type SpecialistFinished struct {
+	Summary string
+}
+
+func (SpecialistFinished) eventTag() {}
 
 // --- Render message types (Engine → TUI) ---
 
@@ -96,6 +104,13 @@ type ErrorMsg struct {
 
 func (ErrorMsg) renderTag() {}
 
+// StateChangeMsg notifies the TUI that the engine state changed.
+type StateChangeMsg struct {
+	NewState State
+}
+
+func (StateChangeMsg) renderTag() {}
+
 // --- Engine ---
 
 const channelBufSize = 64
@@ -109,6 +124,15 @@ type Engine struct {
 	mu     sync.Mutex
 	cancel context.CancelFunc
 	ready  chan struct{}
+
+	state      State
+	specialist *SpecialistSession
+	gateChan   chan bool
+
+	provider fantasy.Provider
+	modelID  string
+
+	stateStore *StateStore
 }
 
 // New creates a new Engine with buffered channels.
@@ -117,6 +141,8 @@ func New() *Engine {
 		uiToEngine: make(chan Event, channelBufSize),
 		engineToUI: make(chan RenderMsg, channelBufSize),
 		ready:      make(chan struct{}),
+		state:      StateCoordinator,
+		gateChan:   make(chan bool, 1),
 	}
 }
 
@@ -158,6 +184,43 @@ func (e *Engine) Start(ctx context.Context) {
 	}
 }
 
+// TransitionTo moves the engine to a new state after validating
+// the transition is legal. On success it emits a StateChangeMsg
+// to the TUI. Returns an error for invalid transitions.
+func (e *Engine) TransitionTo(newState State) error {
+	if err := ValidateTransition(e.state, newState); err != nil {
+		return err
+	}
+	e.state = newState
+	e.send(StateChangeMsg{NewState: newState})
+	if err := e.SaveState(); err != nil {
+		log.Warn("engine: failed to persist state", "err", err)
+	}
+	return nil
+}
+
+// State returns the current engine state.
+func (e *Engine) State() State { return e.state }
+
+// WaitForGateApproval sends a ShowGate to the TUI, transitions to
+// the given gate state, and blocks until the user responds.
+// Returns true if approved, false if rejected.
+func (e *Engine) WaitForGateApproval(
+	gateState State,
+	prompt string,
+) bool {
+	gateID := string(gateState)
+	e.send(ShowGate{ID: gateID, Message: prompt})
+	_ = e.TransitionTo(gateState)
+	return <-e.gateChan
+}
+
+// SubmitGateResponse delivers the user's gate decision,
+// unblocking WaitForGateApproval.
+func (e *Engine) SubmitGateResponse(approved bool) {
+	e.gateChan <- approved
+}
+
 // Ready returns a channel that is closed once the engine's
 // event loop has started and Stop can be called safely.
 func (e *Engine) Ready() <-chan struct{} {
@@ -185,30 +248,56 @@ func (e *Engine) send(msg RenderMsg) {
 	}
 }
 
-// handleEvent dispatches incoming events. The UserInput handler
-// simulates streaming a dummy response back to the UI. Phase 2
-// replaces this with real agent logic.
+// handleEvent dispatches incoming events based on the current
+// engine state.
 func (e *Engine) handleEvent(ev Event) {
 	switch ev := ev.(type) {
 	case UserInput:
-		log.Debug("engine: user input", "text", ev.Text)
-		go e.dummyStream(ev.Text)
+		e.handleUserInput(ev)
 	case GateResponse:
-		log.Debug("engine: gate response",
-			"id", ev.GateID, "approved", ev.Approved)
+		e.handleGateResponse(ev)
 	case ToolResult:
 		log.Debug("engine: tool result",
 			"tool", ev.ToolName)
 	case Cancel:
 		log.Debug("engine: cancel")
+	case SpecialistFinished:
+		log.Debug("engine: specialist finished",
+			"summary", ev.Summary)
 	default:
 		log.Warn("engine: unknown event",
 			"type", fmt.Sprintf("%T", ev))
 	}
 }
 
-// dummyStream simulates a streaming response with a short delay
-// between chunks to prove the UI stays responsive.
+// handleUserInput routes user input based on the current state.
+func (e *Engine) handleUserInput(ev UserInput) {
+	log.Debug("engine: user input", "text", ev.Text)
+
+	switch e.state {
+	case StateCoordinator, StateCoordinatorGate:
+		go e.RunCoordinatorTurn(context.Background(), ev.Text)
+	case StateSpecialistRoom, StateSpecialistGate:
+		log.Debug("engine: input forwarded to specialist")
+	case StateFiling:
+		e.send(ErrorMsg{
+			Message: "Cannot accept input while filing",
+		})
+	default:
+		go e.dummyStream(ev.Text)
+	}
+}
+
+// handleGateResponse delivers the user's gate decision to
+// the engine's gate channel.
+func (e *Engine) handleGateResponse(ev GateResponse) {
+	log.Debug("engine: gate response",
+		"id", ev.GateID, "approved", ev.Approved)
+	e.SubmitGateResponse(ev.Approved)
+}
+
+// dummyStream simulates a streaming response. Removed once
+// the coordinator loop is fully wired.
 func (e *Engine) dummyStream(input string) {
 	response := "I received your message: " + input
 	e.send(StreamChunk{Content: response, Done: false})

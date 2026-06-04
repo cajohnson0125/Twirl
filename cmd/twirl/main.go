@@ -28,6 +28,25 @@ func main() {
 			}
 			cfg := config.Load()
 			eng := engine.New()
+
+			if !cfg.LLM.IsZero() {
+				apiKey, err := cfg.LLM.ResolveAPIKey()
+				if err != nil {
+					log.Warn("LLM API key not resolved",
+						"err", err)
+				} else {
+					fcfg := engine.FantasyConfig{
+						BaseURL: cfg.LLM.BaseURL,
+						APIKey:  apiKey,
+						Model:   cfg.LLM.Model,
+					}
+					if err := eng.Configure(fcfg); err != nil {
+						log.Warn("LLM provider setup failed",
+							"err", err)
+					}
+				}
+			}
+
 			go eng.Start(context.Background())
 			defer eng.Stop()
 			return tui.Run(eng, cfg.Cursor, cfg.Blink)

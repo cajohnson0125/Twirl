@@ -2,7 +2,14 @@
 
 **Goal:** Implement concurrent agent dispatch, the MCP tool server, and the "Agent Gate" with diffing.
 
-### 4.1 The MCP Server
+### 4.1 Memory Injection into Prompts
+- [ ] Wire `LibraryManager` into `Engine.BuildPrompt()` to inject relevant Working Memory docs (read from `docs/` folder, truncate if over budget).
+- [ ] Wire `ArchiveManager` into `Engine.BuildPrompt()` to inject relevant Episodic Memory entries (query chromem-go, truncate if over budget).
+- [ ] Update `BuildCoordinatorPrompt` to include memory context in the assembled prompt.
+- [ ] Test: verify prompt includes Working Memory content when docs exist.
+- [ ] Test: verify prompt truncates memory content to fit token budget.
+
+### 4.2 The MCP Server
 - [ ] Install MCP Go SDK (e.g., `github.com/mark3labs/mcp-go` or official MCP Go bindings)
 - [ ] Create `internal/mcp/server.go` with local MCP server
 - [ ] Implement `read_library(path: string)` tool → calls `LibraryManager.ReadFile()`
@@ -16,7 +23,7 @@
 - [ ] Test: call `propose_library_write` with valid path → staged
 - [ ] Test: call `propose_library_write` with invalid path → error returned
 
-### 4.2 Agent Dispatch
+### 4.3 Agent Dispatch
 - [ ] Create `internal/engine/agent_session.go` with `AgentSession` struct
 - [ ] Implement `Engine.SpawnAgent(agentType, task string)`
 - [ ] Use `golang.org/x/sync/errgroup` to spawn isolated goroutine
@@ -30,7 +37,7 @@
 - [ ] Implement streaming from Agent → `engineToUI` → Bubbletea viewport
 - [ ] Test: Coordinator gate approved → Agent spawns → can chat with Agent
 
-### 4.3 The Agent Gate (Diffing)
+### 4.4 The Agent Gate (Diffing)
 - [ ] Define Agent completion signal: Agent calls special tool `signal_completion(summary: string)`
 - [ ] When `signal_completion` is called, pause Agent stream
 - [ ] Retrieve all staged writes from MCP server's memory

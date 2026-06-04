@@ -117,7 +117,7 @@ func TestRenderMsgVariants(t *testing.T) {
 	}
 }
 
-func TestDummyStreamResponse(t *testing.T) {
+func TestCoordinatorTurn_NoProvider(t *testing.T) {
 	e := New()
 
 	done := make(chan struct{})
@@ -131,20 +131,11 @@ func TestDummyStreamResponse(t *testing.T) {
 	e.SendEvent(UserInput{Text: "hello world"})
 
 	msg := <-e.ReceiveMsg()
-	chunk, ok := msg.(StreamChunk)
+	errMsg, ok := msg.(ErrorMsg)
 	if !ok {
-		t.Fatalf("expected StreamChunk, got %T", msg)
+		t.Fatalf("expected ErrorMsg, got %T", msg)
 	}
-	if chunk.Content != "I received your message: hello world" {
-		t.Fatalf("unexpected content: %q", chunk.Content)
-	}
-
-	msg = <-e.ReceiveMsg()
-	chunk, ok = msg.(StreamChunk)
-	if !ok {
-		t.Fatalf("expected StreamChunk for done, got %T", msg)
-	}
-	if !chunk.Done {
-		t.Fatal("expected final chunk to have Done=true")
+	if errMsg.Message != "LLM provider not configured" {
+		t.Fatalf("unexpected message: %q", errMsg.Message)
 	}
 }

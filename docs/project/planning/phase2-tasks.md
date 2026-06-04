@@ -24,7 +24,7 @@
 - [x] Create `internal/memory/archives.go` with `ArchiveManager` struct
 - [x] Implement `ArchiveManager.Init()` to open/create `twirl.db` file
 - [x] Enable WAL mode for concurrent access: `PRAGMA journal_mode=WAL`
-- [x] Create `episodes` table: `id`, `timestamp`, `tenant_name`, `task_description`, `outcome`, `git_commit`
+- [x] Create `episodes` table: `id`, `timestamp`, `specialist_name`, `task_description`, `outcome`, `git_commit`
 - [x] Create `messages` table: `id`, `episode_id`, `role`, `content`, `timestamp`
 - [x] Implement `ArchiveManager.SaveEpisode()` to insert episode metadata
 - [x] Implement `ArchiveManager.SaveMessages()` to insert chat history linked to episode

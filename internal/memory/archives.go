@@ -88,7 +88,7 @@ func (am *ArchiveManager) createTables(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS episodes (
 			id          INTEGER PRIMARY KEY AUTOINCREMENT,
 			timestamp   TEXT    NOT NULL,
-			tenant_name TEXT    NOT NULL,
+			specialist_name TEXT    NOT NULL,
 			task_desc   TEXT    NOT NULL,
 			outcome     TEXT    NOT NULL DEFAULT '',
 			git_commit  TEXT    NOT NULL DEFAULT ''
@@ -115,12 +115,12 @@ func (am *ArchiveManager) Close() error {
 
 // Episode represents a completed agent interaction.
 type Episode struct {
-	ID         int64
-	Timestamp  time.Time
-	TenantName string
-	TaskDesc   string
-	Outcome    string
-	GitCommit  string
+	ID             int64
+	Timestamp      time.Time
+	SpecialistName string
+	TaskDesc       string
+	Outcome        string
+	GitCommit      string
 }
 
 // Message represents a single chat message within an episode.
@@ -139,10 +139,10 @@ func (am *ArchiveManager) SaveEpisode(
 ) (int64, error) {
 	result, err := am.db.Exec(
 		`INSERT INTO episodes
-			(timestamp, tenant_name, task_desc, outcome, git_commit)
+			(timestamp, specialist_name, task_desc, outcome, git_commit)
 		 VALUES (?, ?, ?, ?, ?)`,
 		ep.Timestamp.Format(time.RFC3339),
-		ep.TenantName,
+		ep.SpecialistName,
 		ep.TaskDesc,
 		ep.Outcome,
 		ep.GitCommit,
@@ -194,7 +194,7 @@ func (am *ArchiveManager) GetRecentEpisodes(
 	limit int,
 ) ([]Episode, error) {
 	rows, err := am.db.Query(
-		`SELECT id, timestamp, tenant_name, task_desc,
+		`SELECT id, timestamp, specialist_name, task_desc,
 		        outcome, git_commit
 		   FROM episodes
 		   ORDER BY timestamp DESC
@@ -212,7 +212,7 @@ func (am *ArchiveManager) GetRecentEpisodes(
 		var ep Episode
 		var ts string
 		if err := rows.Scan(
-			&ep.ID, &ts, &ep.TenantName,
+			&ep.ID, &ts, &ep.SpecialistName,
 			&ep.TaskDesc, &ep.Outcome, &ep.GitCommit,
 		); err != nil {
 			return nil, fmt.Errorf(

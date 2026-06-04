@@ -80,11 +80,11 @@ func TestArchiveSaveAndRetrieveEpisode(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 
 	ep := Episode{
-		Timestamp:  now,
-		TenantName: "Brainstorm",
-		TaskDesc:   "generate auth ideas",
-		Outcome:    "completed",
-		GitCommit:  "abc123",
+		Timestamp:      now,
+		SpecialistName: "Brainstorm",
+		TaskDesc:       "generate auth ideas",
+		Outcome:        "completed",
+		GitCommit:      "abc123",
 	}
 
 	id, err := am.SaveEpisode(ep)
@@ -110,9 +110,9 @@ func TestArchiveSaveAndRetrieveEpisode(t *testing.T) {
 	if !got.Timestamp.Equal(now) {
 		t.Errorf("Timestamp = %v, want %v", got.Timestamp, now)
 	}
-	if got.TenantName != ep.TenantName {
-		t.Errorf("TenantName = %q, want %q",
-			got.TenantName, ep.TenantName)
+	if got.SpecialistName != ep.SpecialistName {
+		t.Errorf("SpecialistName = %q, want %q",
+			got.SpecialistName, ep.SpecialistName)
 	}
 	if got.TaskDesc != ep.TaskDesc {
 		t.Errorf("TaskDesc = %q, want %q",
@@ -132,10 +132,10 @@ func TestArchiveSaveMessages(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 
 	ep := Episode{
-		Timestamp:  now,
-		TenantName: "Research",
-		TaskDesc:   "research APIs",
-		Outcome:    "completed",
+		Timestamp:      now,
+		SpecialistName: "Research",
+		TaskDesc:       "research APIs",
+		Outcome:        "completed",
 	}
 	id, err := am.SaveEpisode(ep)
 	if err != nil {
@@ -197,10 +197,10 @@ func TestArchiveGetRecentEpisodes_Ordering(t *testing.T) {
 
 	for i := range 3 {
 		ep := Episode{
-			Timestamp:  base.Add(time.Duration(i) * time.Hour),
-			TenantName: "Agent",
-			TaskDesc:   "task",
-			Outcome:    "done",
+			Timestamp:      base.Add(time.Duration(i) * time.Hour),
+			SpecialistName: "Specialist",
+			TaskDesc:       "task",
+			Outcome:        "done",
 		}
 		if _, err := am.SaveEpisode(ep); err != nil {
 			t.Fatalf("SaveEpisode %d: %v", i, err)

@@ -38,10 +38,10 @@
 ## Orchestration
 **Approach:** Custom channel-based engine (pure Go)
 **Components:** 
-  - Coordinator goroutine ("Alfred") managing global state, context budgeting, and memory retrieval.
-  - Agent dispatch via `errgroup` for isolated, concurrent Tenant goroutines.
+  - Coordinator goroutine managing global state, context budgeting, and memory retrieval.
+  - Agent dispatch via `errgroup` for isolated, concurrent Agent goroutines.
   - Channel Event Bus (`uiToEngine`, `engineToUI`) for streaming tokens and blocking on HITL gates.
-**Rationale:** No external library dependency; idiomatic Go using goroutines, channels, and context. LangGraphGo evaluated but offers no advantage over native Go patterns -- both require manual persistence, retry, and error recovery. Native Go channels perfectly map to the "Alfred Gate" and "Tenant Gate" blocking mechanisms.
+**Rationale:** No external library dependency; idiomatic Go using goroutines, channels, and context. LangGraphGo evaluated but offers no advantage over native Go patterns -- both require manual persistence, retry, and error recovery. Native Go channels perfectly map to the "Coordinator Gate" and "Agent Gate" blocking mechanisms.
 
 ## Protocols
 **MCP:** Required -- Model Context Protocol for tool interactions. Implemented as a local Go MCP server featuring strict path-validation middleware to enforce the `required-documents.md` schema (The Library) and route unstructured data to the Archives.
